@@ -1,0 +1,306 @@
+# KittenExtensions
+
+KSA Modding Utilities
+
+NOTE: This is still under development and the XML/API may change. [ShaderExtensions](https://github.com/AMPW-german/ShaderExtensions) is now a separate mod for shader related things.
+
+Current Features:
+- Allows modders to write patches that alter any XML file (including in Core or other mods)
+- Allows adding new xml asset types that can be used by any mod XML
+
+## Installation
+
+- Required [Starmap](https://github.com/StarMapLoader/StarMap)
+- Download zip from [Releases](https://github.com/tsholmes/KittenExtensions/releases/latest) and extract into one of these locations:
+    - `Documents/My Games/Kitten Space Agency/mods/` (recommended, persists across game updates)
+    - Game `Content` folder
+- The game auto-discovers new mods and prompts you to enable them. Alternatively, add to `manifest.toml` in `Documents/My Games/Kitten Space Agency`:
+    ```toml
+    [[mods]]
+    id = "KittenExtensions"
+    enabled = true
+    ```
+
+
+## XML Patching
+**NOTE: The patch format is not finalized and may change**
+
+Uses the [XPathPatch](https://github.com/tsholmes/XPathPatch) library.
+
+To patch game xml files, add a new patch file entry to your mod.toml
+```toml
+# MyMod/mod.toml
+name = "MyMod"
+
+patches = [ "MyPatch.xml" ]
+```
+and make the corresponding patch file.
+```xml
+<!-- MyMod/MyPatch.xml -->
+<Patch>
+  <!-- patches -->
+</Patch>
+```
+
+### GameData Document
+Patch operations run against the GameData xml document, constructed from xml files from all enabled mods
+```xml
+<Root>
+  <!-- each enabled mod in same order as manifest -->
+  <Mod Id="Core">
+    <!-- each asset/system/meshcollection/patch file loaded in and RelPath attribute added -->
+    <System Id="Sol" RelPath="SolSystem.xml">
+      <!-- rest of file contents -->
+    </System>
+    <Assets RelPath="Astronomicals.xml">
+      <!-- ... -->
+    </Assets>
+  </Mod>
+  <Mod Id="MyMod">
+    <!-- ... -->
+    <Patch RelPath="MyPatch.xml">
+      <!-- ... -->
+    </Patch>
+  </Mod>
+</Root>
+```
+
+If you want to inspect the GameData document after patching is done, you can enable the debug flag in your mod manifest:
+```toml
+# Documents/My Games/Kitten Space Agency/manifest.toml
+
+[[mods]]
+id = "KittenExtensions"
+enabled = true
+debug = true
+```
+This will show a debug view that allows you to step through patches on startup. It also saves a `root.xml` file to the same directory as the `manifest.toml` which contains the unpatched GameData document.
+
+### Patch Execution
+After loading the GameData document, each `<Patch>` file under each `<Mod>` is executed in order. The list of `<Mod>` and `<Patch>` nodes are loaded at the start, so reordering or removing those elements will not affect the patches run. The data inside a `<Patch>` however is read at the time it is executed, so patches may alter patches that will be executed after it. Each operation element in each `<Patch>` is executed with the `<Root>` node as the context (starting with an XPath of `/Root/`, not `/`).
+
+### Patch Operations
+
+#### Path Attribute
+
+The `Path` attribute must be a valid XPath 1.0 expression ([RFC](https://www.w3.org/TR/1999/REC-xpath-19991116/), [Wiki](https://en.wikipedia.org/wiki/XPath)). It must resolve to a `node-set` as defined in the spec.
+
+The `Path` is executed from the current context node (`<Root>` unless inside a `<With>` op).
+
+#### Pos Attribute
+ `<Copy>` operations have a `Pos` attribute that defines where the update should occur. This value has different meaning depending on the selected node.
+
+| `Pos` | Element | Text/Attribute |
+| --- | --- | --- |
+| `Replace` | replace entire element | replace value |
+| `Append` | add to end of children | add to end of value |
+| `Prepend` | add to beginning of children | add to beginning of value |
+| `Before` | insert as previous sibling | Invalid |
+| `After` | insert as following sibling | Invalid |
+
+#### `<Copy>`
+Patches xml nodes at `Path` (defaults to context node) with the value at `From` (defaults `<Copy>` element contents) using the given `Pos` (defaults to `Replace`). 
+```xml
+<Copy Path="Target XPath" From="Source XPath" Pos="Pos" />
+<Copy Path="Target XPath" Pos="Pos">
+  <!-- From Xml -->
+</Copy>
+```
+
+#### `<Merge>`
+Merges xml nodes at `Path` (defaults to context node) with the value at `From` (defaults to `<Merge>` element contents). See the [Merging](#merging) section below for details on merge semantics.
+```xml
+<Merge Path="Target XPath" From="Source XPath" Pos="Pos" />
+<Merge Path="Target XPath" Pos="Pos">
+  <!-- From Xml -->
+</Merge>
+```
+
+#### `<Delete>`
+Deletes xml nodes at `Path` (defaults to context node).
+```xml
+<Delete Path="Target XPath" />
+```
+
+#### `<If>` `<IfAny>` `<IfNone>`
+Executes a set of operations depending on the result of the `Path` expression. Child operations are run with the same context node as the `<If>` operation.
+```xml
+<If Path="XPath Expression">
+  <Any>
+    <!-- any patch op element -->
+    <!-- runs when Path is true, non-zero and non-NaN, a non-empty string, or a non-empty node-set -->
+  </Any>
+  <None>
+    <!-- any patch op element -->
+    <!-- runs when Path is false, zero or NaN, an empty string, or an empty node-set -->
+  </None>
+</If>
+<IfAny Path="XPath Expression">
+  <!-- any patch op element -->
+  <!-- equivalient to <If><Any>...</Any></If> -->
+</IfAny>
+<IfNone Path="XPath Expression">
+  <!-- any patch op element -->
+  <!-- equivalient to <If><None>...</None></If> -->
+</IfNone>
+```
+
+#### `<With>`
+Executes a set of operations using the `Path` nodes as the context. When `Path` selects multiple nodes, the child contents will be run **once for each selected node**.
+```xml
+<With Path="Context XPath">
+  <!-- any patch op element -->
+</With>
+```
+
+#### `<SetVar>`
+Saves the result of the `Path` expression (default `<SetVar>` contents) to a variable with the given `Name`.
+```xml
+<!-- sets $myvar0 to the string 'Value' -->
+<SetVar Name="myvar0">Value</SetVar>
+<!-- sets $myvar to the sum of all attribute values holding positive numbers -->
+<SetVar Name="myvar1" Path="sum(//@*[.>0])" />
+<!-- overwrites $myvar1, referencing its last value in the expression -->
+<SetVar Name="myvar1" Path="$myvar1*2" />
+<!-- stores a node list in $myvar2 -->
+<SetVar Name="myvar2" Path="Mod/Assets" />
+<!-- use the stored $myvar2 node list in a path expression -->
+<With Path="$myvar2/Character">
+  <!-- ... -->
+</With>
+```
+
+#### Merging
+When using the `<Merge>` operation, each selected source element is merged with each selected target element.
+- All attributes are copied from the source element (replacing the existing value if present)
+- Each child of the source is matched with a child node in the target
+  - If the source element has an `Id` attribute, it matches with the first child element of the target with the same element name and `Id`
+  - If the source element does not have an `Id`, it matches with the first child element of the target with the same element name
+  - The attribute used to match can be configured for each source element with a `_MergeId` attribute
+    - `_MergeId="*"` means any matching element name
+    - `_MergeId="-"` means never match
+    - `_MergeId="AttrName"` means match non-empty values of the `AttrName` attribute
+  - If a match is not found (and for all text elements), the source child node is added as a child of the target element
+  - The position the child is inserted can be controlled with a `_MergePos` attribute on the source parent element
+    - `_MergePos="Append"` (default) adds unmatched nodes after existing children
+    - `_MergePos="Prepend"` adds unmatched nodes before existing children
+
+```xml
+<!-- Merging -->
+<Source _MergePos="Prepend" A="B">
+  <X Id="1">a</X>
+  <X Id="2" Name="Y" _MergeId="Name">b</X>
+  <X Id="3" _MergeId="-">c</X>
+</Source>
+<!-- Into -->
+<Target>
+  <X Id="1">d</X>
+  <X Id="2">e</X>
+  <X Id="3" Name="Y" Z="true">f</X>
+</Target>
+<!-- Produces -->
+<Target A="B">
+  <X Id="3">c</X> <!-- Source X 3 prepended since _MergeId set to not match -->
+  <X Id="1">a</X>
+  <X Id="2">e</X> <!-- not matched since _MergeId set to Name -->
+  <X id="2" Name="Y" Z="true">b</X> <!-- Source X 2 merged into Target X 3 matched by Name -->
+</Target>
+```
+
+### Examples
+Copy a planet from `Core` into a custom `<System>`
+```xml
+<Patch>
+  <!-- set context to MyMod -->
+  <With Path="Mod[@Id='MyMod']">
+    <!-- Copy Venus from core system into custom system (assuming MySystem already exists) -->
+    <Copy
+      Path="System[@Id='MySystem']"
+      From="/Root/Mod[@Id='Core']/System[@Id='SolSystem']/AtmosphericBody[@Id='Venus']"
+      Pos="Append"
+    />
+    <!-- set context to the copied Venus -->
+    <With Path="System/AtmosphericBody[@Id='Venus']">
+      <!-- Change Id to MyVenus -->
+      <Copy Path="@Id" Pos="Prepend">My</Copy>
+      <!-- Make it a little heavier -->
+      <Copy Path="Mass/@Earths">1</Copy>
+      <!-- Remove stratus clouds -->
+      <Remove Path="Clouds/CloudType[@Name='Stratus']" />
+    </With>
+  </With>
+</Patch>
+```
+
+Adjust orbit colors of planets based on current value
+```xml
+<Patch>
+  <!-- run for each PlanetaryBody and AtmosphericBody anywhere in the GameData document -->
+  <With Path="//PlanetaryBody | //AtmosphericBody">
+    <If Path="sum(Color/@*) > 1.5">
+      <Any>
+        <!-- if R+G+B of orbit color is >1.5 make each RGB val brighter -->
+        <With Path="Color/@*">
+          <Copy From="1-(1-.)*0.5" />
+        </With>
+      </Any>
+      <None>
+        <!-- otherwise make each RGB val darker -->
+        <With Path="Color/@*">
+          <Copy From=".*0.5" />
+        </With>
+      </None>
+    </If>
+  </With>
+</Patch>
+```
+
+## Asset Extensions
+
+### XML Extensions
+
+To add a new XML asset type, first add the KittenExtensions attributes to your assembly. These attributes must be defined in the KittenExtensions namespace and at least one of these attributes must be defined in the **same** assembly as the classes for the XML types you are adding.
+```cs
+#pragma warning disable CS9113
+using System;
+namespace KittenExtensions
+{
+  [AttributeUsage(AttributeTargets.Class)]
+  internal class KxAssetAttribute(string xmlElement) : Attribute;
+  [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+  internal class KxAssetInjectAttribute(Type parent, string member, string xmlElement) : Attribute;
+}
+```
+
+Then make your custom XML asset type. For top-level assets it should extend at least `SerializedId`, but more likely you will want to extend an existing asset type. For types that are only used as an option for an existing field, it only needs to extend the type of the field.
+
+```cs
+[KxAsset("ShaderEx")] // add <ShaderEx> tag to root <Assets> element
+[KxAssetInject(
+  // inject into the GaugeComponent.FragmentShader field as <FragmentEx>
+  typeof(GaugeComponent), nameof(GaugeComponent.FragmentShader), "FragmentEx"
+)]
+public class ShaderEx : ShaderReference
+{
+  // your custom type here
+}
+```
+
+```cs
+// Allow specifying gauge box color as <HexColor Hex="FFFFFF" />
+[KxAssetInject(typeof(GaugeBoxReference), nameof(GaugeBoxReference.Color), "HexColor")]
+public class HexColor : ColorReference
+{
+  [XmlAttribute("Hex")]
+  public string Hex = "FFFFFF";
+
+  public override void OnDataLoad(Mod mod)
+  {
+    var hexVal = uint.Parse(Hex, NumberStyles.HexNumber);
+    
+    R = (float)((hexVal >> 16) & 0xFF) / 0xFF;
+    G = (float)((hexVal >> 8) & 0xFF) / 0xFF;
+    B = (float)((hexVal >> 0) & 0xFF) / 0xFF;
+  }
+}
+```

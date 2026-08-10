@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "StarMapStart": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\AMPW\\Documents\\My Games\\Kitten Space Agency\\mods\\StarMap\\StarMap.exe",
+      "workingDirectory": "C:\\Users\\AMPW\\Documents\\My Games\\Kitten Space Agency\\mods\\StarMap"
+    }
+  }
+}

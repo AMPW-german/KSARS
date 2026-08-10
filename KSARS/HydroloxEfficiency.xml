@@ -1,0 +1,13 @@
+﻿<Patch>
+  <!-- Improve every temperature and molar-mass value in the Core Hydrolox reaction. -->
+  <With Path="Mod[@Id='Core']//MixtureReaction[@Id='Hydrolox']">
+    <Copy Path=".//Temperature/@K">100000</Copy>
+    <Copy Path=".//MolarMass/@GPerMol">0.00000000001</Copy>
+  </With>
+
+  <!-- Improve the LR91 Sea gas-generator chamber. -->
+  <With Path="Mod[@Id='Core']//PartGameData[@Id='CorePropulsionA_Prefab_EngineA2']/Combustor[@Id='GasGeneratorChamber']">
+    <Copy Path="MaxPressure/@Bar">100</Copy>
+    <Copy Path="ThermalEfficiency/@Value">50000</Copy>
+  </With>
+</Patch>
