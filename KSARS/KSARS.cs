@@ -112,7 +112,7 @@ namespace KSARS
             double3 parallel = double3.Dot(deltaVelocityEcl, velocityDirection) * velocityDirection;
             double3 perpendicular = deltaVelocityEcl - parallel;
 
-            return inverseGamma * inverseGamma * inverseGamma * parallel + inverseGamma * perpendicular;
+            return inverseGamma * inverseGamma * inverseGamma * parallel + inverseGamma * inverseGamma * perpendicular;
         }
 
         private static double3 LimitToLightSpeed(double3 velocityEcl)
@@ -138,9 +138,9 @@ namespace KSARS
 
         private static void CorrectMeasurements(ref KinematicMeasurements measurements, in RelativisticIntegrationState state, doubleQuat cci2Cce, doubleQuat bub2Cci)
         {
-            double3 measuredDeltaEcl = measurements.DeltaVelocityCci.Transform(bub2Cci).Transform(cci2Cce);
+            double3 measuredDeltaEcl = measurements.DeltaVelocityCci.Transform(cci2Cce);
             measuredDeltaEcl = ApplyRelativisticAcceleration(state.VelocityEcl, measuredDeltaEcl);
-            measurements.DeltaVelocityCci = measuredDeltaEcl.Transform(cci2Cce.Inverse()).Transform(bub2Cci.Inverse());
+            measurements.DeltaVelocityCci = measuredDeltaEcl.Transform(cci2Cce.Inverse());
 
             double3 accelerationEcl = measurements.AccelerationBody.Transform(state.Body2Cci).Transform(cci2Cce);
             accelerationEcl = ApplyRelativisticAcceleration(state.VelocityEcl, accelerationEcl);
