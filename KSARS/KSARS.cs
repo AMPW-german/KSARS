@@ -52,7 +52,7 @@ namespace KSARS
             ImGui.End();
         }
 
-        [HarmonyPatch(typeof(VehicleUpdateTask), "DetectStructuralFailure"), HarmonyPrefix]
+        [HarmonyPatch(typeof(PhysicsBubble), "DetectStructuralFailure"), HarmonyPrefix]
         public static bool VehicleUpdateTask_DetectStructuralFailure_Prefix(VehicleUpdateTask __instance)
         {
             // Disable structural failure detection to prevent unrealistic breakage at relativistic speeds
@@ -93,7 +93,7 @@ namespace KSARS
             CorrectMeasurements(ref measurements, in __state, cci2Cce, origin.GetBub2Cci());
         }
 
-        private static double3 GetParentVelocityEcl(IParentBody parent, SimTime time)
+        private static double3 GetParentVelocityEcl(IParentBody parent, UniverseTime time)
         {
             return parent is IOrbiter orbiter ? orbiter.GetVelocityEcl(time) : parent.GetVelocityEcl();
         }
