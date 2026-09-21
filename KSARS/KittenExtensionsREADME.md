@@ -25,7 +25,7 @@ Current Features:
 ## XML Patching
 **NOTE: The patch format is not finalized and may change**
 
-Uses the [XPathPatch](https://github.com/tsholmes/XPathPatch) library.
+Uses the [XPathPatch](https://github.com/AMPW-german/XPathPatch) library.
 
 To patch game xml files, add a new patch file entry to your mod.toml
 ```toml
