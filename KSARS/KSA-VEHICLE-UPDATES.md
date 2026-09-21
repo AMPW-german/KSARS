@@ -195,7 +195,8 @@ The corrected ECL change is transformed back to CCI. The resulting CCI position 
 
 The final ECL velocity is constrained to the greatest representable `double` below `299,792,458 m/s`. KSA's existing local-physics velocity clamp remains in place as an additional safeguard.
 
-This patch affects the unconstrained maneuvering path that calls `IntegrateVelocityVerlet`. Contact and constraint simulation is performed through Bepu and does not call this integrator, so constrained vehicles do not yet receive the same relativistic transformation.
+This patch affects the unconstrained maneuvering path that calls `IntegrateVelocityVerlet`. Contact and constraint simulation is performed through 
+and does not call this integrator, so constrained vehicles do not yet receive the same relativistic transformation.
 
 ## Summary
 

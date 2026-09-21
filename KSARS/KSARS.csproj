@@ -17,7 +17,7 @@
 		<Configurations>Debug;Release</Configurations>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 
-		<VersionPrefix>0.1.2</VersionPrefix>
+		<VersionPrefix>0.1.3</VersionPrefix>
 		<Version>$(VersionPrefix)</Version>
 		<AssemblyVersion>0.1.0.0</AssemblyVersion>
 		<FileVersion>$(VersionPrefix).0</FileVersion>
@@ -49,19 +49,19 @@
 		<DefineConstants>TRACE</DefineConstants>
 	</PropertyGroup>
 
-	<Import Project="Dependencies.props" />
+	<Import Project="KSADLLs.props" />
 
 	<ItemGroup>
 		<PackageReference Include="Lib.Harmony" Version="2.4.2" />
-		<PackageReference Include="StarMap.API" Version="0.3.6" />
+		<Reference Include="StarMap.API">
+			<HintPath>$(KSAModsDir)StarMap/StarMap.API.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
 	</ItemGroup>
 
 	<ItemGroup>
 		<None Update="HydroloxEfficiency.xml">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="mod.toml">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 
