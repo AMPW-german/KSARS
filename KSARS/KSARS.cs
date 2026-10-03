@@ -52,12 +52,12 @@ namespace KSARS
             ImGui.End();
         }
 
+        // Disable structural failure detection to prevent unrealistic breakage at relativistic speeds
         [HarmonyPatch(typeof(PhysicsBubble), "DetectStructuralFailure"), HarmonyPrefix]
-        public static bool VehicleUpdateTask_DetectStructuralFailure_Prefix(VehicleUpdateTask __instance)
-        {
-            // Disable structural failure detection to prevent unrealistic breakage at relativistic speeds
-            return false;
-        }
+        public static bool VehicleUpdateTask_DetectStructuralFailure_Prefix(VehicleUpdateTask __instance) => false;
+
+        [HarmonyPatch(typeof(FlightComputer), "SolveGLoadThrottleCap"), HarmonyPostfix]
+        public static void FlightComputer_SolveGLoadThrottleCap_Postfix(ref float __result) => __result = 1.0f; // Disable G-load throttle cap to allow full thrust at relativistic speeds
 
         [HarmonyPatch(typeof(PhysicsStates), nameof(PhysicsStates.IntegrateVelocityVerlet)), HarmonyPrefix]
         private static void PhysicsStates_IntegrateVelocityVerlet_Prefix(ref PhysicsStates __instance, out RelativisticIntegrationState __state)
