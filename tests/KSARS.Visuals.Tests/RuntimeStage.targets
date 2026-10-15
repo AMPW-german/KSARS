@@ -1,0 +1,61 @@
+<Project>
+  <Target Name="StageRuntimeProbe" DependsOnTargets="Build">
+    <Error Condition="'$(SkipModPackaging)' != 'true'"
+           Text="StageRuntimeProbe requires -p:SkipModPackaging=true; packaging and copy targets must stay disabled." />
+    <Error Condition="'$(RuntimeInstanceDir)' == ''"
+           Text="StageRuntimeProbe requires -p:RuntimeInstanceDir=&quot;absolute fresh path inside KSARS/obj&quot;." />
+
+    <PropertyGroup>
+      <_StageObjRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\KSARS\obj\'))</_StageObjRoot>
+      <_StageInstanceDir>$([System.IO.Path]::GetFullPath('$(RuntimeInstanceDir)'))</_StageInstanceDir>
+      <_StageObjRootUpper>$([System.String]::Copy('$(_StageObjRoot)').ToUpperInvariant())</_StageObjRootUpper>
+      <_StageInstanceDirUpper>$([System.String]::Copy('$(_StageInstanceDir)').ToUpperInvariant())</_StageInstanceDirUpper>
+      <_StageInsideObj>$([System.String]::Copy('$(_StageInstanceDirUpper)').StartsWith('$(_StageObjRootUpper)'))</_StageInsideObj>
+    </PropertyGroup>
+
+    <Error Condition="'$(_StageInsideObj)' != 'True'"
+           Text="RuntimeInstanceDir '$(_StageInstanceDir)' must resolve inside '$(_StageObjRoot)'." />
+    <Error Condition="Exists('$(_StageInstanceDir)')"
+           Text="RuntimeInstanceDir '$(_StageInstanceDir)' already exists; refusing to stage into a non-fresh directory." />
+
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\..\KSARS\KSARS.csproj"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration);SkipModPackaging=true">
+      <Output TaskParameter="TargetOutputs" ItemName="_StageMainAssembly" />
+    </MSBuild>
+    <Error Condition="!Exists('@(_StageMainAssembly)')"
+           Text="Main output '@(_StageMainAssembly)' not found; the build did not produce the expected assembly." />
+
+    <PropertyGroup>
+      <_StageMainOutputDir>%(_StageMainAssembly.RootDir)%(_StageMainAssembly.Directory)</_StageMainOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_StageMainFiles Include="$(_StageMainOutputDir)\**" />
+      <_StageRejected Include="@(_StageMainFiles)" Condition="
+          $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant()) == 'KSA'
+          or $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant().StartsWith('BRUTAL'))
+          or $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant().StartsWith('PLANET'))
+          or $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant().StartsWith('BEPU'))
+          or $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant().StartsWith('TOMLET'))
+          or $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant().StartsWith('STARMAP'))
+          or $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant().StartsWith('SHADEREXTENSIONS'))
+          or $([System.String]::Copy('%(_StageMainFiles.FileName)').ToUpperInvariant().StartsWith('KITTENEXTENSIONS'))" />
+    </ItemGroup>
+    <Error Condition="'@(_StageRejected)' != ''"
+           Text="Staging refused: game or foreign-mod payload present in main output: @(_StageRejected)" />
+
+    <MakeDir Directories="$(_StageInstanceDir)\mods\KSARS" />
+    <Copy SourceFiles="@(_StageMainFiles)"
+          DestinationFiles="@(_StageMainFiles->'$(_StageInstanceDir)\mods\KSARS\%(RecursiveDir)%(FileName)%(Extension)')" />
+
+    <PropertyGroup>
+      <_StageModToml>name = &quot;KSARS&quot;%0Aversion = &quot;v0.1.5&quot;%0Aauthor = &quot;AMPW&quot;%0Aassets = [ &quot;HydroloxEfficiency.xml&quot; ]%0A[StarMap]%0AEntryAssembly = &quot;KSARS&quot;</_StageModToml>
+      <_StageManifest>[[mods]]%0Aid = &quot;Core&quot;%0Aenabled = true%0A%0A[[mods]]%0Aid = &quot;KSARS&quot;%0Aenabled = true</_StageManifest>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_StageInstanceDir)\mods\KSARS\mod.toml" Lines="$(_StageModToml)" Overwrite="true" />
+    <WriteLinesToFile File="$(_StageInstanceDir)\manifest.toml" Lines="$(_StageManifest)" Overwrite="true" />
+
+    <Message Importance="high"
+             Text="Staged runtime probe into '$(_StageInstanceDir)': mods/KSARS = @(_StageMainFiles->'%(FileName)%(Extension)', ', ') + mod.toml; manifest.toml at instance root. Staging implies no GPU or renderer acceptance." />
+  </Target>
+</Project>

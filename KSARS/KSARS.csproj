@@ -57,6 +57,7 @@
 			<HintPath>$(KSAModsDir)StarMap/StarMap.API.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+		<InternalsVisibleTo Include="KSARS.Visuals.Tests" />
 	</ItemGroup>
 
 	<ItemGroup>

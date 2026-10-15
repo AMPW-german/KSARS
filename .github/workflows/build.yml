@@ -197,7 +197,13 @@ jobs:
 
           deps_dir="$(pwd)/deps/"
           ksa_dir="$deps_dir/ksa/"
-          dotnet build KSARS/KSARS.csproj -c "$CONFIGURATION" --no-restore /p:KSADir="$ksa_dir" /p:KSAModsDir="$deps_dir" /p:OutputPath="../Release/KSARS/"
+          dotnet build KSARS/KSARS.csproj -c "$CONFIGURATION" --no-restore /p:KSADir="$ksa_dir" /p:KSAModsDir="$deps_dir"
+
+      - name: Run phase-0 tests
+        shell: bash
+        run: |
+          deps_dir="$(pwd)/deps/"
+          dotnet test tests/KSARS.Visuals.Tests/KSARS.Visuals.Tests.csproj -c "$CONFIGURATION" /p:KSADir="$deps_dir/ksa/" /p:KSAModsDir="$deps_dir" /p:SkipModPackaging=true
 
       - name: Compute artifact name
         id: artifact-name
