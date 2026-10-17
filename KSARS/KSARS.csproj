@@ -67,6 +67,13 @@
 		</None>
 	</ItemGroup>
 
+	<ItemGroup>
+		<EmbeddedResource Include="..\tools\SpectralTables\Generated\ThermalTable.v2.bin" LogicalName="KSARS.ThermalTable.v2.bin" />
+		<EmbeddedResource Include="..\tools\SpectralTables\Data\LICENSE-CC-BY-SA-4.0.txt" LogicalName="KSARS.SpectralData.LICENSE.txt" />
+		<EmbeddedResource Include="..\tools\SpectralTables\Data\README.md" LogicalName="KSARS.SpectralData.SOURCE.md" />
+		<EmbeddedResource Include="..\tools\SpectralTables\Generated\README.md" LogicalName="KSARS.SpectralData.TABLES.md" />
+	</ItemGroup>
+
   	<Target Name="SetVersionMetadata" BeforeTargets="GetAssemblyVersion">
 		<Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true">
 			<Output TaskParameter="ConsoleOutput" PropertyName="GitShortHashRaw" />

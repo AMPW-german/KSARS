@@ -7,6 +7,7 @@ using Xunit;
 
 namespace KSARS.Visuals.Tests
 {
+    [Collection("VisualHookState")]
     public class RenderHooksTests
     {
         private static StartupObservation ValidBaseline() => new()

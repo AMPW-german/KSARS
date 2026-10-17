@@ -62,6 +62,26 @@ namespace KSARS.Visuals.Tests
         private static int IndexOfCall(List<(string DeclaringType, string Name)> calls, string declaringType, string name) =>
             calls.FindIndex(c => c.DeclaringType == declaringType && c.Name == name);
 
+        private static int? IntConstant(Instruction instruction)
+        {
+            if (instruction.OpCode == OpCodes.Ldc_I4_M1) return -1;
+            if (instruction.OpCode == OpCodes.Ldc_I4_0) return 0;
+            if (instruction.OpCode == OpCodes.Ldc_I4_1) return 1;
+            if (instruction.OpCode == OpCodes.Ldc_I4_2) return 2;
+            if (instruction.OpCode == OpCodes.Ldc_I4_3) return 3;
+            if (instruction.OpCode == OpCodes.Ldc_I4_4) return 4;
+            if (instruction.OpCode == OpCodes.Ldc_I4_5) return 5;
+            if (instruction.OpCode == OpCodes.Ldc_I4_6) return 6;
+            if (instruction.OpCode == OpCodes.Ldc_I4_7) return 7;
+            if (instruction.OpCode == OpCodes.Ldc_I4_8) return 8;
+            if (instruction.OpCode == OpCodes.Ldc_I4_S) return (sbyte)instruction.Operand;
+            if (instruction.OpCode == OpCodes.Ldc_I4) return (int)instruction.Operand;
+            return null;
+        }
+
+        private static TypeDefinition? TryTypeOf(ModuleDefinition module, string name) =>
+            module.GetType(name) ?? module.Types.SelectMany(AllNested).FirstOrDefault(t => t.FullName == name);
+
         [Fact]
         public void SolarFrameToken_Matches_RequiresIdentitiesAndFrameEpoch()
         {
@@ -509,5 +529,169 @@ namespace KSARS.Visuals.Tests
             Assert.True(glare.AnchorSupported);
             Assert.Equal(1.0, glare.SunDot, 6);
         }
+
+        [Fact]
+        public void PassPrepare_DeclaresImageLayoutsMatchingRecordedTransitions()
+        {
+            using var assembly = AssemblyDefinition.ReadAssembly(ModAssemblyPath);
+            var prepare = SingleMethod(assembly.MainModule, PassType, "Prepare");
+            var instructions = prepare.Body.Instructions;
+
+            var layouts = new List<int>();
+            for (int i = 0; i + 1 < instructions.Count; i++)
+            {
+                if (instructions[i + 1].OpCode == OpCodes.Stfld
+                    && instructions[i + 1].Operand is FieldReference fr
+                    && fr.Name == "ImageLayout"
+                    && fr.DeclaringType.Name == "VkDescriptorImageInfo")
+                {
+                    int? value = IntConstant(instructions[i]);
+                    Assert.True(value.HasValue,
+                        $"the ImageLayout store at IL_{instructions[i + 1].Offset:x4} must be fed by a constant");
+                    layouts.Add(value.Value);
+                }
+            }
+
+            // VkImageLayout ints pinned against the installed enum by
+            // NativeImageBarrierPresets_SampledReadVfcTargetsShaderReadOnly.
+            const int depthStencilReadOnly = 4;
+            const int shaderReadOnly = 5;
+            const int general = 1;
+            Assert.Equal(
+                new[]
+                {
+                    depthStencilReadOnly, // sceneDepth
+                    shaderReadOnly,       // mainColor — Record transitions it via SampledReadVfc
+                    general,              // blur storage image
+                    shaderReadOnly,       // glow read
+                    shaderReadOnly,       // occlusion read
+                    general,              // scene storage image
+                    shaderReadOnly,       // blur read
+                },
+                layouts.ToArray());
+        }
+
+        [Fact]
+        public void PassRecord_TransitionsMainColorWithSampledReadInInitialBatch()
+        {
+            using var assembly = AssemblyDefinition.ReadAssembly(ModAssemblyPath);
+            var record = SingleMethod(assembly.MainModule, PassType, "Record");
+            var instructions = record.Body.Instructions;
+
+            int firstFlush = instructions.ToList().FindIndex(i =>
+                (i.OpCode == OpCodes.Call || i.OpCode == OpCodes.Callvirt)
+                && i.Operand is MethodReference mr
+                && mr.DeclaringType.FullName == "KSA.Rendering.BarrierBatch" && mr.Name == "SubmitAndFlush");
+            Assert.True(firstFlush >= 0, "Record must submit its initial barrier batch");
+
+            // Pair every BarrierBatch.Add in the initial batch with the pass image
+            // field and the ImageBarrierInfo preset loaded in its argument window.
+            var pairs = new List<(string Image, string Preset)>();
+            int windowStart = 0;
+            for (int i = 0; i < firstFlush; i++)
+            {
+                bool isCall = instructions[i].OpCode == OpCodes.Call
+                    || instructions[i].OpCode == OpCodes.Callvirt
+                    || instructions[i].OpCode == OpCodes.Newobj;
+                if (isCall && instructions[i].Operand is MethodReference mr
+                    && mr.DeclaringType.FullName == "KSA.Rendering.BarrierBatch" && mr.Name == "Add")
+                {
+                    var window = instructions.Skip(windowStart).Take(i - windowStart).ToList();
+                    string image = window.LastOrDefault(w => w.OpCode == OpCodes.Ldfld
+                            && w.Operand is FieldReference f && f.DeclaringType.FullName == PassType)
+                        ?.Operand is FieldReference f1 ? f1.Name : "?";
+                    string preset = window.LastOrDefault(w =>
+                            (w.OpCode == OpCodes.Ldsfld || w.OpCode == OpCodes.Ldsflda)
+                            && w.Operand is FieldReference f
+                            && f.DeclaringType.FullName.Contains("ImageBarrierInfo"))
+                        ?.Operand is FieldReference f2 ? f2.Name : "?";
+                    pairs.Add((image, preset));
+                }
+
+                if (isCall)
+                {
+                    windowStart = i + 1;
+                }
+            }
+
+            string detail = string.Join(", ", pairs.Select(p => $"{p.Image}->{p.Preset}"));
+            Assert.Equal(1, pairs.Count(p => p.Image == "_mainColor"));
+            Assert.True(pairs.Any(p => p.Image == "_mainColor" && p.Preset == "SampledReadVfc"),
+                $"_mainColor must transition via SampledReadVfc in the initial batch; observed: {detail}");
+        }
+
+        [RendererBaselineFact]
+        public void NativeImageBarrierPresets_SampledReadVfcTargetsShaderReadOnly()
+        {
+            string installDir = Path.GetDirectoryName(BaselineContext.KsaAssemblyPath)!;
+            using var vulkan = AssemblyDefinition.ReadAssembly(
+                Path.Combine(installDir, "Brutal.Vulkan.dll"));
+            var layouts = vulkan.MainModule.GetType("Brutal.VulkanApi.VkImageLayout");
+            Assert.NotNull(layouts);
+            Assert.Equal(1, layouts.Fields.Single(f => f.Name == "General").Constant);
+            Assert.Equal(4, layouts.Fields.Single(f => f.Name == "DepthStencilReadOnlyOptimal").Constant);
+            Assert.Equal(5, layouts.Fields.Single(f => f.Name == "ShaderReadOnlyOptimal").Constant);
+
+            TypeDefinition? presets = null;
+            AssemblyDefinition? owner = null;
+            foreach (string name in new[] { "Planet.Render.Core.dll", "KSA.dll", "Brutal.Vulkan.Abstractions.dll" })
+            {
+                var candidate = AssemblyDefinition.ReadAssembly(Path.Combine(installDir, name));
+                TypeDefinition? found = TryTypeOf(candidate.MainModule,
+                    "KSA.Rendering.ImageBarrierInfo/Presets");
+                if (found is null)
+                {
+                    candidate.Dispose();
+                    continue;
+                }
+
+                presets = found;
+                owner = candidate;
+                break;
+            }
+
+            Assert.NotNull(owner);
+            using (owner)
+            {
+                var cctor = presets!.Methods.Single(m => m.Name == ".cctor");
+                var instructions = cctor.Body.Instructions;
+                int storeIndex = instructions.ToList().FindIndex(i =>
+                    i.OpCode == OpCodes.Stsfld
+                    && i.Operand is FieldReference fr && fr.Name == "SampledReadVfc");
+                Assert.True(storeIndex >= 0,
+                    "SampledReadVfc static store not found in the preset cctor");
+
+                int sliceStart = 0;
+                for (int i = storeIndex - 1; i >= 0; i--)
+                {
+                    if (instructions[i].OpCode == OpCodes.Stsfld)
+                    {
+                        sliceStart = i + 1;
+                        break;
+                    }
+                }
+
+                var slice = instructions.Skip(sliceStart).Take(storeIndex - sliceStart).ToList();
+                int newobjIndex = slice.FindIndex(i =>
+                    i.OpCode == OpCodes.Newobj
+                    && i.Operand is MethodReference mr
+                    && mr.DeclaringType.Name == "ImageBarrierInfo" && mr.Name == ".ctor");
+                Assert.True(newobjIndex >= 0,
+                    "SampledReadVfc cctor slice must construct ImageBarrierInfo; observed: " + Dump(slice));
+
+                var ctor = (MethodReference)slice[newobjIndex].Operand;
+                Assert.True(ctor.Parameters.Count >= 1
+                        && ctor.Parameters[0].ParameterType.Name == "VkImageLayout",
+                    "the first ImageBarrierInfo ctor argument must be the VkImageLayout");
+
+                int? layoutArg = slice.Take(newobjIndex).Select(IntConstant).FirstOrDefault(c => c.HasValue);
+                Assert.True(layoutArg == 5,
+                    $"native SampledReadVfc must target ShaderReadOnlyOptimal (5); observed {layoutArg?.ToString() ?? "?"}; slice: " + Dump(slice));
+            }
+        }
+
+        private static string Dump(IList<Instruction> instructions) =>
+            string.Join("; ", instructions.Select(i =>
+                $"{i.Offset:x4} {i.OpCode} {(i.Operand is FieldReference fr ? fr.DeclaringType.Name + "::" + fr.Name : i.Operand is MethodReference mr ? mr.DeclaringType.Name + "::" + mr.Name : i.Operand)}"));
     }
 }

@@ -118,7 +118,14 @@ namespace KSARS.Visuals.Tests
                 .ToList();
 
             Assert.Equal(
-                new[] { "KSARS.KSARS::Init", "KSARS.Visuals.RenderHooks::TryInstall" },
+                new[]
+                {
+                    "KSARS.KSARS::Init",
+                    "KSARS.Visuals.RelativisticSpaceRenderer::TryInstallMilkyWayProbe",
+                    "KSARS.Visuals.RelativisticSpaceRenderer::TryInstallStarProbe",
+                    "KSARS.Visuals.RenderHooks::TryInstall",
+                    "KSARS.Visuals.StarCatalogHooks::TryInstall",
+                },
                 installingMethods.OrderBy(n => n).ToArray());
         }
 
@@ -140,7 +147,11 @@ namespace KSARS.Visuals.Tests
                 .ToList();
             Assert.All(harmonyCalls, x =>
                 Assert.True(
-                    x.Method.DeclaringType.FullName == "KSARS.Visuals.RenderHooks" && x.Method.Name == "TryInstall",
+                    ((x.Method.DeclaringType.FullName == "KSARS.Visuals.RenderHooks"
+                        || x.Method.DeclaringType.FullName == "KSARS.Visuals.StarCatalogHooks")
+                        && x.Method.Name == "TryInstall")
+                    || (x.Method.DeclaringType.FullName == "KSARS.Visuals.RelativisticSpaceRenderer"
+                        && (x.Method.Name == "TryInstallStarProbe" || x.Method.Name == "TryInstallMilkyWayProbe")),
                     $"{x.Method.DeclaringType.FullName}::{x.Method.Name} installs Harmony patches"));
 
             var harmonyAttributes = visualsTypes

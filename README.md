@@ -31,6 +31,10 @@ Both main-pass shaders compile through the game's bundled ShaderC, but GPU depth
 
 The approved direction is a space-first object atlas: distant bodies as shaded objects plus the native foreground view, with no six-world scene captures. Secondary media (atmospheres, oceans, clouds), terrain, external vessels, transparency, and reflections are known limitations of that planned path and are not delivered.
 
+Warning: the opt-in `KSARS_STAR_PROBE=1` relativistic star path still changes star appearance under observer motion: catalog directions aberrate, colors Doppler-shift through the fitted thermal model, and point-source flux scales with D^2 (searchlight brightening ahead, fading behind). At zero observer speed the stock sprite is reproduced — sharp core, halo wing, magnitude-dependent size, and edge taper — energy-normalized to the modeled native sprite integral. The native star draw is retained whenever the owned path cannot record.
+
+The opt-in `KSARS_MILKYWAY_PROBE=1` relativistic Milky Way path adapts the installed `MilkyWay.frag` at three seams: each pixel's reconstructed view direction is inverse-aberrated to its rest direction before the cubemap/cloud lookup (so the band visibly swings toward the velocity axis under motion), the band's composited radiance is Doppler-shifted as an effective-temperature (~5000 K) extended source — the temperature shift absorbs the extended-source intensity transform — and an all-sky CMB blackbody at T = 2.725·D is added. The CMB's visible luminance is effectively zero until D pushes it into the visible band (~beta 0.9999+), so output is stock at rest and the cosmic background appears only at extreme velocity. The native fullscreen draw is retained whenever the owned pass cannot record.
+
 ## Disclaimer
 
 This was just a small side project and it has a very low priority so it may not be updated for future versions of KSA.\

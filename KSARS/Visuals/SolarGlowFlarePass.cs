@@ -431,7 +431,7 @@ namespace KSARS.Visuals
             {
                 Sampler = Program.LinearClampedSampler,
                 ImageView = mainColor.ImageView,
-                ImageLayout = VkImageLayout.General,
+                ImageLayout = VkImageLayout.ShaderReadOnlyOptimal,
             };
             WriteImageDescriptor(_graphicsSet2, 0, VkDescriptorType.CombinedImageSampler, in depthInfo);
             WriteImageDescriptor(_graphicsSet2, 2, VkDescriptorType.CombinedImageSampler, in mainColorInfo);

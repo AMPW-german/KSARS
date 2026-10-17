@@ -350,6 +350,117 @@ namespace KSARS.Visuals.Tests
             Assert.False(projection.TryReconstructRadialDistance(0.5, 1.1, 0.5, out _));
         }
 
+        [Theory]
+        [InlineData(0.0)]
+        [InlineData(0.9)]
+        [InlineData(0.9998)]
+        public void ExtendedRearwardBody_ForwardThenShaderInverse_PreservesTileCoordinates(double beta)
+        {
+            var position = new OpticalVector(600.0, 0.0, 800.0);
+            Assert.True(AtlasProjection.TryCreate(position, 50.0, 512, 8, out AtlasProjection tile));
+            var observer = Observer(new OpticalVector(0.0, 0.0, -1.0), beta);
+            Assert.True(tile.Forward.Z > 0.0, "source starts behind a nominal -Z camera");
+            Assert.True(RelativisticOptics.TryForward(tile.Forward, observer, out OpticalRay center));
+            if (beta >= 0.9)
+                Assert.True(center.Direction.Z < 0.0, "aberration must bring this rearward source forward");
+
+            CheckTileRoundTrip(tile, observer);
+        }
+
+        [Fact]
+        public void GreaterThanHemisphereBody_ShaderInverse_PreservesExtendedTileMapping()
+        {
+            Assert.True(AtlasProjection.TryCreate(new OpticalVector(0.0, 0.0, 1000.0),
+                50.0, 512, 8, out AtlasProjection tile));
+            var observer = Observer(new OpticalVector(0.0, 0.0, -1.0), 0.9998);
+            Assert.True(RelativisticOptics.TryTransformSphericalCap(tile.Forward,
+                tile.RestAngularRadius, observer, out ObservedSphericalCap cap));
+            Assert.True(cap.AngularRadius > Math.PI / 2.0);
+            CheckTileRoundTrip(tile, observer);
+        }
+
+        private static void CheckTileRoundTrip(AtlasProjection tile, PresentationVelocity observer)
+        {
+            var axis = new Vector3((float)observer.Direction.X,
+                (float)observer.Direction.Y, (float)observer.Direction.Z);
+            foreach (double fraction in new[] { 0.0, 0.5, 0.95 })
+            {
+                for (int azimuth = 0; azimuth < 16; azimuth++)
+                {
+                    double phi = azimuth * (2.0 * Math.PI / 16.0);
+                    double angle = fraction * tile.RestAngularRadius;
+                    OpticalVector rest = tile.Forward * Math.Cos(angle)
+                        + (tile.Right * Math.Cos(phi) + tile.Up * Math.Sin(phi)) * Math.Sin(angle);
+                    Assert.True(tile.TryProjectRestRay(rest, out double expectedU, out double expectedV));
+                    Assert.True(RelativisticOptics.TryForward(rest, observer, out OpticalRay observed));
+                    var input = Vector3.Normalize(new Vector3((float)observed.Direction.X,
+                        (float)observed.Direction.Y, (float)observed.Direction.Z));
+                    (Vector3 actual, _) = ShaderInverse(input, axis, (float)observer.Q);
+                    Assert.True(tile.TryProjectRestRay(new OpticalVector(actual.X, actual.Y, actual.Z),
+                        out double actualU, out double actualV));
+                    // Analytic rays, without texture sampling: a quarter of a 512px source texel.
+                    Assert.InRange(Math.Abs(actualU - expectedU), 0.0, 0.25 / 512.0);
+                    Assert.InRange(Math.Abs(actualV - expectedV), 0.0, 0.25 / 512.0);
+                }
+            }
+        }
+
+        [Fact]
+        public void PhysicalDisjointSpheres_DepthReconstructionPreservesNearestSurfaceAcrossOverlap()
+        {
+            var centers = new[]
+            {
+                new OpticalVector(0.0, 0.0, 1000.0),
+                new OpticalVector(15.0, 0.0, 1500.0),
+            };
+            double[] radii = { 50.0, 100.0 };
+            Assert.True((centers[1] - centers[0]).LengthSquared()
+                > (radii[0] + radii[1]) * (radii[0] + radii[1]));
+            var tiles = new AtlasProjection[2];
+            for (int i = 0; i < tiles.Length; i++)
+                Assert.True(AtlasProjection.TryCreate(centers[i], radii[i], 512, 8, out tiles[i]));
+
+            foreach (double x in new[] { -0.03, 0.0, 0.03 })
+            foreach (double y in new[] { -0.02, 0.0, 0.02 })
+            {
+                Assert.True(RelativisticOptics.TryNormalize(new OpticalVector(x, y, 1.0), out OpticalVector ray));
+                var measured = new float[2];
+                var expected = new double[2];
+                for (int i = 0; i < tiles.Length; i++)
+                {
+                    double along = centers[i].Dot(ray);
+                    double discriminant = radii[i] * radii[i]
+                        - (centers[i] - ray * along).LengthSquared();
+                    Assert.True(discriminant > 0.0, "both real sphere silhouettes must cover the ray");
+                    expected[i] = along - Math.Sqrt(discriminant);
+                    AtlasProjection tile = tiles[i];
+                    double z = expected[i] * ray.Dot(tile.Forward);
+                    // Encode physical source-view Z using finite reverse-Z perspective.
+                    double depth = tile.Near * (tile.Far - z) / (z * (tile.Far - tile.Near));
+                    Assert.InRange(depth, double.Epsilon, 1.0);
+                    Assert.True(tile.TryProjectRestRay(ray, out double u, out double v));
+                    Assert.True(ShaderRadialOf(tile, (float)u, (float)v, (float)depth, out measured[i]));
+                    Assert.InRange(Math.Abs(measured[i] / expected[i] - 1.0), 0.0, 2e-6);
+                }
+
+                Assert.True(expected[0] < expected[1]);
+                foreach (int[] order in new[] { new[] { 0, 1 }, new[] { 1, 0 } })
+                {
+                    int winner = -1;
+                    float best = float.PositiveInfinity;
+                    foreach (int i in order)
+                    {
+                        if (measured[i] < best)
+                        {
+                            best = measured[i];
+                            winner = i;
+                        }
+                    }
+                    Assert.Equal(0, winner);
+                }
+            }
+        }
+
         private static bool MainShaderRadial(float u, float v, float depth,
             float tanHalfFov, float near, float far, out float radial)
         {

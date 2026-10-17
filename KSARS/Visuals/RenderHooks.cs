@@ -52,18 +52,29 @@ namespace KSARS.Visuals
         {
             get
             {
+                string catalog = string.Empty;
+                try
+                {
+                    catalog = StarCatalogHooks.Status;
+                }
+                catch (Exception)
+                {
+                    catalog = string.Empty;
+                }
+
+                string suffix = catalog.Length == 0 ? string.Empty : $" | {catalog}";
                 if (s_probeStatus is null)
                 {
-                    return s_status;
+                    return s_status + suffix;
                 }
 
                 try
                 {
-                    return $"{s_status} | {s_probeStatus()}";
+                    return $"{s_status} | {s_probeStatus()}{suffix}";
                 }
                 catch (Exception)
                 {
-                    return $"{s_status} | source probe status unavailable";
+                    return $"{s_status} | source probe status unavailable{suffix}";
                 }
             }
         }
@@ -248,7 +259,52 @@ namespace KSARS.Visuals
                     s_status += $"; source probe disabled: {inner.GetType().Name}: {inner.Message}";
                     Console.WriteLine($"KSARS: {s_status}");
                 }
+
+                try
+                {
+                    StarCatalogHooks.TryInstall(harmony);
+                }
+                catch (Exception catalogEx)
+                {
+                    ResetCatalogStateIfLoaded();
+                    s_status += $"; star catalog capture disabled: {catalogEx.GetType().Name}: {catalogEx.Message}";
+                    Console.WriteLine($"KSARS: {s_status}");
+                }
             }
+
+            if (Environment.GetEnvironmentVariable("KSARS_STAR_PROBE") == "1")
+            {
+                try
+                {
+                    if (!StarCatalogHooks.Installed)
+                    {
+                        StarCatalogHooks.TryInstall(harmony);
+                    }
+
+                    RelativisticSpaceRenderer.TryInstallStarProbe(harmony, members);
+                }
+                catch (Exception starEx)
+                {
+                    ResetStarProbeStateIfLoaded();
+                    s_status += $"; star probe disabled: {starEx.GetType().Name}: {starEx.Message}; native stars retained";
+                    Console.WriteLine($"KSARS: {s_status}");
+                }
+            }
+
+            if (Environment.GetEnvironmentVariable("KSARS_MILKYWAY_PROBE") == "1")
+            {
+                try
+                {
+                    RelativisticSpaceRenderer.TryInstallMilkyWayProbe(harmony, members);
+                }
+                catch (Exception milkyWayEx)
+                {
+                    ResetMilkyWayProbeStateIfLoaded();
+                    s_status += $"; milky way probe disabled: {milkyWayEx.GetType().Name}: {milkyWayEx.Message}; native milky way retained";
+                    Console.WriteLine($"KSARS: {s_status}");
+                }
+            }
+
             return true;
         }
 
@@ -422,6 +478,46 @@ namespace KSARS.Visuals
             s_vesselDataField = null;
             s_poolCapacityGetter = null;
             s_shaderSlotGetter = null;
+            ResetCatalogStateIfLoaded();
+            ResetStarProbeStateIfLoaded();
+            ResetMilkyWayProbeStateIfLoaded();
+        }
+
+        // StarCatalogHooks/RelativisticSpaceRenderer member signatures reference
+        // KSA types; in hosts without the game assemblies those methods cannot be
+        // compiled. Nothing can have been installed there, so skipping reset is a
+        // no-op. Only dependency-resolution failures are ignored.
+        private static void ResetCatalogStateIfLoaded()
+        {
+            try
+            {
+                StarCatalogHooks.ResetState();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException)
+            {
+            }
+        }
+
+        private static void ResetStarProbeStateIfLoaded()
+        {
+            try
+            {
+                RelativisticSpaceRenderer.ResetStarProbeState();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException)
+            {
+            }
+        }
+
+        private static void ResetMilkyWayProbeStateIfLoaded()
+        {
+            try
+            {
+                RelativisticSpaceRenderer.ResetMilkyWayProbeState();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException)
+            {
+            }
         }
 
         private static void OnCreateDescriptors()
