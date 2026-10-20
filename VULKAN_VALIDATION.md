@@ -338,3 +338,36 @@ above stands, and the documented limitations remain: unverified mathematical ext
 calibration are still not proved, and no claim of full mathematical or GPU correctness is
 made. The next implementation work is the spectral foundation — a prerequisite for the
 phase-5 stars/Milky Way scope.
+
+### Media-probe run — 20261020-203127-media (2026-10-20)
+
+Instance `KSARS/obj/runtime-media-20261019-1` relaunched under the layer with all six
+probes armed (`KSARS_ATLAS_PROBE`, `STAR`, `MILKYWAY`, `LIGHTING`, `SHADOW`, `MEDIA`) —
+the first VVL coverage of the media transform and the sunbloom rebind. Workload: β=0 view,
+high-β observer override, planet views, resize, orderly exit (teardown + pipeline-cache
+save logged 20:36:01).
+
+- Activation confirmed: `CURRENT-VALIDATION-ENABLED` listing Core Checks, Synchronization,
+  Stateless Parameter, Object lifetime, Thread Safety, Handle Wrapping.
+- Unique VVL categories (headers, not counts):
+  - `Validation Error` `VUID-vkCmdBlitImage-dstImage-02000` — a `vkCmdBlitImage` into a
+    `VK_FORMAT_BC4_UNORM_BLOCK` tiled-optimal image (BC4 lacks `BLIT_DST_BIT`). Fires at
+    startup during texture streaming; **game-side**: KSARS emits zero `vkCmdBlitImage`
+    callsites, and BC4 single-channel compressed targets are the stock heightmap upload
+    path. Not mod-attributable.
+  - `Validation Error` `UNASSIGNED-non-acquired-swapchain-image-used` — `vkQueueSubmit`
+    layout transitions across all three swapchain images without acquire, at lines
+    120–140 i.e. **during shutdown** — the stock teardown path transitioning presentable
+    images at exit. Previously seen 2026-10-16, absent in the corrected run; workload/
+    teardown-path dependent, not mod-attributable.
+  - `Validation Performance Warning` `WARNING-Shader-OutputNotConsumed` — same stock
+    category as the Core-only baseline.
+- The previously fixed `VUID-vkCmdDraw-imageLayout-00344` (combined-sampler `GENERAL` vs
+  `SHADER_READ_ONLY_OPTIMAL` in `SolarGlowFlarePass`) did **not** recur — the descriptor
+  layout fix holds under the media workload.
+- **No KSARS-attributable findings**: every error maps to stock streaming/teardown paths;
+  all owned passes (media placement, sunbloom rebind, lighting/shadow copies, star/MW
+  passes, atlas capture) produced no validation findings under sync validation.
+- Caveats: covers the exercised workload only; no mod-side claims beyond the paths run.
+
+Run log: `C:\Users\AMPW\AppData\Local\VulkanValidationLayers\runs\20261020-203127-media\vvl-messages.log`
