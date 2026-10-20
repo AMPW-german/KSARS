@@ -263,6 +263,23 @@ namespace KSARS.Visuals.Tests
             Assert.Contains("/ 78.0", RelativisticStarShaders.Vertex);
             Assert.Contains("clip.z+1.0", RelativisticStarShaders.Vertex);
             Assert.Contains("+2.0*logD", RelativisticStarShaders.Vertex);
+            // Aberration also shrinks the sprite: the billboard is a small
+            // angular feature about the star direction, so its observed
+            // radius scales by 1/D (never grown past the rest glyph, ~1.25px
+            // raster floor) and per-pixel emission is compensated by the
+            // inverse area so each star's integrated flux is unchanged. The
+            // photosphere cap (hard clamp, shifted thermal luminance bound)
+            // keeps boosted sprites bounded in per-pixel brightness.
+            Assert.Contains("1.0 / doppler", RelativisticStarShaders.Vertex);
+            Assert.Contains("1.25 / restPixelSide", RelativisticStarShaders.Vertex);
+            Assert.Contains("2.0*log(sizeFactor)", RelativisticStarShaders.Vertex);
+            Assert.Contains("outCapLum", RelativisticStarShaders.Vertex);
+            // Crowding bound: overlapping compressed stars dim each star's
+            // cap by ~(Dref/D)^2 so the packed field saturates at the mean
+            // photosphere rather than the sum.
+            Assert.Contains("32.0/doppler", RelativisticStarShaders.Vertex);
+            Assert.Contains("inCapLum", RelativisticStarShaders.Fragment);
+            Assert.Contains("lum > cap", RelativisticStarShaders.Fragment);
             Assert.Contains("smoothstep", RelativisticStarShaders.Fragment);
             Assert.Contains("65504", RelativisticStarShaders.Fragment);
             Assert.Contains("discard", RelativisticStarShaders.Fragment);

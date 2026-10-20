@@ -152,5 +152,5 @@ across platforms/runtimes is not promised until verified.
   deliberately separate.
 - The fitter residual is explicit and unbounded; the model's tint is the
   documented bounded prior, not measured spectra, and no renderer consumes it.
-- No runtime/exposure calibration, reflected-light basis, or CMB pixel
-  integration is implemented here.
+- No runtime/exposure calibration or reflected-light basis is implemented
+  here.

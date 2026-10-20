@@ -305,6 +305,48 @@ namespace KSARS.Visuals
                 }
             }
 
+            if (Environment.GetEnvironmentVariable("KSARS_LIGHTING_PROBE") == "1")
+            {
+                try
+                {
+                    RelativisticSpaceRenderer.TryInstallLightingProbe(harmony, members);
+                }
+                catch (Exception lightingEx)
+                {
+                    ResetLightingProbeStateIfLoaded();
+                    s_status += $"; vessel lighting probe disabled: {lightingEx.GetType().Name}: {lightingEx.Message}; native vessel lighting retained";
+                    Console.WriteLine($"KSARS: {s_status}");
+                }
+            }
+
+            if (Environment.GetEnvironmentVariable("KSARS_SHADOW_PROBE") == "1")
+            {
+                try
+                {
+                    RelativisticSpaceRenderer.TryInstallVesselShadowProbe(harmony);
+                }
+                catch (Exception shadowEx)
+                {
+                    ResetVesselShadowProbeStateIfLoaded();
+                    s_status += $"; vessel shadow probe disabled: {shadowEx.GetType().Name}: {shadowEx.Message}; native cascaded shadows retained";
+                    Console.WriteLine($"KSARS: {s_status}");
+                }
+            }
+
+            if (Environment.GetEnvironmentVariable("KSARS_MEDIA_PROBE") == "1")
+            {
+                try
+                {
+                    RelativisticSpaceRenderer.TryInstallMediaProbe(harmony, members);
+                }
+                catch (Exception mediaEx)
+                {
+                    ResetMediaProbeStateIfLoaded();
+                    s_status += $"; media probe disabled: {mediaEx.GetType().Name}: {mediaEx.Message}; native body positions retained";
+                    Console.WriteLine($"KSARS: {s_status}");
+                }
+            }
+
             return true;
         }
 
@@ -481,6 +523,8 @@ namespace KSARS.Visuals
             ResetCatalogStateIfLoaded();
             ResetStarProbeStateIfLoaded();
             ResetMilkyWayProbeStateIfLoaded();
+            ResetLightingProbeStateIfLoaded();
+            ResetMediaProbeStateIfLoaded();
         }
 
         // StarCatalogHooks/RelativisticSpaceRenderer member signatures reference
@@ -493,7 +537,7 @@ namespace KSARS.Visuals
             {
                 StarCatalogHooks.ResetState();
             }
-            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException)
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException or TypeInitializationException)
             {
             }
         }
@@ -504,7 +548,7 @@ namespace KSARS.Visuals
             {
                 RelativisticSpaceRenderer.ResetStarProbeState();
             }
-            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException)
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException or TypeInitializationException)
             {
             }
         }
@@ -515,7 +559,40 @@ namespace KSARS.Visuals
             {
                 RelativisticSpaceRenderer.ResetMilkyWayProbeState();
             }
-            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException)
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException or TypeInitializationException)
+            {
+            }
+        }
+
+        private static void ResetVesselShadowProbeStateIfLoaded()
+        {
+            try
+            {
+                RelativisticSpaceRenderer.ResetVesselShadowProbeState();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException or TypeInitializationException)
+            {
+            }
+        }
+
+        private static void ResetLightingProbeStateIfLoaded()
+        {
+            try
+            {
+                RelativisticSpaceRenderer.ResetLightingProbeState();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException or TypeInitializationException)
+            {
+            }
+        }
+
+        private static void ResetMediaProbeStateIfLoaded()
+        {
+            try
+            {
+                RelativisticSpaceRenderer.ResetMediaProbeState();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or TypeLoadException or MissingMethodException or TypeInitializationException)
             {
             }
         }

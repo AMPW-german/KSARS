@@ -118,11 +118,11 @@ namespace KSARS.Visuals.Tests
         {
             Cie1931Observer observer = Observer();
             ThermalColor cold = observer.Evaluate(1.0);
-            ThermalColor cmb = observer.Evaluate(2.7255);
+            ThermalColor cold2 = observer.Evaluate(2.5);
             Assert.True(double.IsFinite(cold.LogLuminance));
             Assert.True(cold.LogLuminance < -10000.0);
-            Assert.True(cmb.LogLuminance > cold.LogLuminance);
-            Assert.Equal(0.0, Math.Exp(cmb.LogLuminance));
+            Assert.True(cold2.LogLuminance > cold.LogLuminance);
+            Assert.Equal(0.0, Math.Exp(cold2.LogLuminance));
             Assert.InRange(Math.Abs(cold.X + cold.Y + cold.Z - 1.0), 0.0, 1e-14);
         }
 

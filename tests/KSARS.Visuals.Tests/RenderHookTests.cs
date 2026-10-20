@@ -121,8 +121,11 @@ namespace KSARS.Visuals.Tests
                 new[]
                 {
                     "KSARS.KSARS::Init",
+                    "KSARS.Visuals.RelativisticSpaceRenderer::TryInstallLightingProbe",
+                    "KSARS.Visuals.RelativisticSpaceRenderer::TryInstallMediaProbe",
                     "KSARS.Visuals.RelativisticSpaceRenderer::TryInstallMilkyWayProbe",
                     "KSARS.Visuals.RelativisticSpaceRenderer::TryInstallStarProbe",
+                    "KSARS.Visuals.RelativisticSpaceRenderer::TryInstallVesselShadowProbe",
                     "KSARS.Visuals.RenderHooks::TryInstall",
                     "KSARS.Visuals.StarCatalogHooks::TryInstall",
                 },
@@ -151,7 +154,10 @@ namespace KSARS.Visuals.Tests
                         || x.Method.DeclaringType.FullName == "KSARS.Visuals.StarCatalogHooks")
                         && x.Method.Name == "TryInstall")
                     || (x.Method.DeclaringType.FullName == "KSARS.Visuals.RelativisticSpaceRenderer"
-                        && (x.Method.Name == "TryInstallStarProbe" || x.Method.Name == "TryInstallMilkyWayProbe")),
+                        && (x.Method.Name == "TryInstallStarProbe" || x.Method.Name == "TryInstallMilkyWayProbe"
+                            || x.Method.Name == "TryInstallLightingProbe"
+                            || x.Method.Name == "TryInstallMediaProbe"
+                            || x.Method.Name == "TryInstallVesselShadowProbe")),
                     $"{x.Method.DeclaringType.FullName}::{x.Method.Name} installs Harmony patches"));
 
             var harmonyAttributes = visualsTypes

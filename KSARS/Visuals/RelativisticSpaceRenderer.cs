@@ -410,6 +410,10 @@ namespace KSARS.Visuals
                 s_starStatus = "star probe disabled: renderer rebuild observed without a verified idle boundary; retained pass left for teardown; native stars retained";
                 s_milkyWayFailed = true;
                 s_milkyWayStatus = "milky way probe disabled: renderer rebuild observed without a verified idle boundary; retained pass left for teardown; native milky way retained";
+                s_lightingFailed = true;
+                s_lightingStatus = "vessel lighting probe disabled: renderer rebuild observed without a verified idle boundary; retained resources left for teardown; native vessel lighting retained";
+                s_shadowFailed = true;
+                s_shadowStatus = "vessel shadow probe disabled: renderer rebuild observed without a verified idle boundary; retained resources left for teardown; native cascaded shadows retained";
                 s_status = "source probe fatal: renderer rebuild observed without a verified idle boundary; no resources retired (idle unproven); restart required";
                 Console.WriteLine($"KSARS: {s_status}");
                 return;
@@ -428,6 +432,8 @@ namespace KSARS.Visuals
 
             CollectStarPassResources(resources);
             CollectMilkyWayPassResources(resources);
+            CollectLightingResources(resources);
+            CollectVesselShadowResources(resources);
 
             if (!FrameResourceRetirement.TryRetireAfterIdle(resources, out AggregateException? error))
             {
@@ -453,6 +459,16 @@ namespace KSARS.Visuals
             {
                 s_milkyWayPass = null;
                 s_milkyWayStatus = "milky way probe pass retired at verified idle rebuild; recreates on the next eligible milky way draw";
+            }
+            if (s_lightingResources is not null)
+            {
+                s_lightingResources = null;
+                s_lightingStatus = "vessel lighting probe resources retired at verified idle rebuild; recreates on the next eligible vessel write";
+            }
+            if (s_ownedCsm is not null)
+            {
+                s_ownedCsm = null;
+                s_shadowStatus = "vessel shadow probe system retired at verified idle rebuild; recreates on the next eligible shadow record";
             }
             s_rendererEpoch++;
             s_firstMainRecordLogged = false;
@@ -984,8 +1000,8 @@ namespace KSARS.Visuals
             string epoch = $"rendererEpoch={s_rendererEpoch} boundaryVerified={s_rebuildBoundaryVerified}";
             string solarFlags = $"mainSolarPrepared={s_mainSolarPrepared} mainSolarPresented={s_mainSolarPresented}";
             return s_lastSnapshot is { } snapshot
-                ? $"{s_status} | current observer={snapshot.FollowedVehicle.Id} nativeFrame={snapshot.CameraData.Frame} (frozen captures keep their own recorded epoch) | {s_mainStatus} | {s_mainSolarStatus} | {solarFlags} | {managedBodies} | {culledBodies} | {omittedBodies} | {nativeOmitted} | {tinyFailure} | mainFirstSubmissionRecorded={s_firstMainRecordLogged} | {epoch} | {s_solarStatus} | {s_solarCoverageStatus} | {s_solarDepthInspectionStatus} | {s_solarGlareStatus} | {s_starStatus} | {s_milkyWayStatus} | {frozen} | {s_axisDiagnostic}"
-                : $"{s_status} | {s_mainStatus} | {s_mainSolarStatus} | {solarFlags} | {managedBodies} | {culledBodies} | {omittedBodies} | {nativeOmitted} | {tinyFailure} | mainFirstSubmissionRecorded={s_firstMainRecordLogged} | {epoch} | {s_solarStatus} | {s_solarCoverageStatus} | {s_solarDepthInspectionStatus} | {s_solarGlareStatus} | {s_starStatus} | {s_milkyWayStatus} | {frozen} | {s_axisDiagnostic}";
+                ? $"{s_status} | current observer={snapshot.FollowedVehicle.Id} nativeFrame={snapshot.CameraData.Frame} (frozen captures keep their own recorded epoch) | {s_mainStatus} | {s_mainSolarStatus} | {solarFlags} | {managedBodies} | {culledBodies} | {omittedBodies} | {nativeOmitted} | {tinyFailure} | mainFirstSubmissionRecorded={s_firstMainRecordLogged} | {epoch} | {s_solarStatus} | {s_solarCoverageStatus} | {s_solarDepthInspectionStatus} | {s_solarGlareStatus} | {s_starStatus} | {s_milkyWayStatus} | {s_lightingStatus} | {s_shadowStatus} | {MediaStatus} | {frozen} | {s_axisDiagnostic}"
+                : $"{s_status} | {s_mainStatus} | {s_mainSolarStatus} | {solarFlags} | {managedBodies} | {culledBodies} | {omittedBodies} | {nativeOmitted} | {tinyFailure} | mainFirstSubmissionRecorded={s_firstMainRecordLogged} | {epoch} | {s_solarStatus} | {s_solarCoverageStatus} | {s_solarDepthInspectionStatus} | {s_solarGlareStatus} | {s_starStatus} | {s_milkyWayStatus} | {s_lightingStatus} | {s_shadowStatus} | {MediaStatus} | {frozen} | {s_axisDiagnostic}";
         }
 
         internal static void DrawProbeGui()
@@ -1012,6 +1028,11 @@ namespace KSARS.Visuals
             if (s_milkyWayProbeInstalled)
             {
                 ImGui.Text(s_milkyWayStatus);
+            }
+            if (s_lightingProbeInstalled)
+            {
+                ImGui.Text(s_lightingStatus);
+            ImGui.Text(s_shadowStatus);
             }
             if (s_solarCapture is { } solarCapture)
             {
@@ -1080,9 +1101,20 @@ namespace KSARS.Visuals
                 ImGui.SameLine();
                 ImGui.SetNextItemWidth(130.0f);
                 double betaInput = beta;
-                if (ImGui.InputDouble("##betaInput", ref betaInput))
+                // Full round-trip precision: extreme-beta test windows sit
+                // below the default "%.6f" resolution.
+                if (ImGui.InputDouble("##betaInput", ref betaInput, format: "%.17g"))
                 {
                     beta = betaInput;
+                }
+
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(110.0f);
+                double gammaInput = gamma;
+                if (ImGui.InputDouble("gamma##gammaInput", ref gammaInput, format: "%.7g"))
+                {
+                    double g = Math.Max(1.0, gammaInput);
+                    beta = Math.Sqrt(1.0 - 1.0 / (g * g));
                 }
 
                 s_betaOverride = Math.Clamp(beta, 0.0, 1.0 - 1e-15);
@@ -1146,7 +1178,8 @@ namespace KSARS.Visuals
             bool hasComposites = s_composites is not null && s_composites.Any(c => c is not null);
             if (s_captures.Count == 0 && s_captureArchive.Count == 0 && !hasComposites
                 && s_solarCapture is null && s_solarArchive.Count == 0 && !hasMainResources
-                && s_starPass is null && s_milkyWayPass is null)
+                && s_starPass is null && s_milkyWayPass is null && s_lightingResources is null
+                && s_ownedCsm is null)
             {
                 ResetProbeState("source probe shut down");
                 return;
@@ -1239,6 +1272,34 @@ namespace KSARS.Visuals
                 }
 
                 s_milkyWayPass = null;
+            }
+
+            if (s_lightingResources is { } lightingResources)
+            {
+                try
+                {
+                    lightingResources.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    (errors ??= new List<Exception>()).Add(ex);
+                }
+
+                s_lightingResources = null;
+            }
+
+            if (s_ownedCsm is { } ownedCsm)
+            {
+                try
+                {
+                    ownedCsm.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    (errors ??= new List<Exception>()).Add(ex);
+                }
+
+                s_ownedCsm = null;
             }
 
             foreach (ProbeCapture capture in s_captures.Concat(s_captureArchive))
@@ -1355,6 +1416,8 @@ namespace KSARS.Visuals
         {
             ResetStarProbeState();
             ResetMilkyWayProbeState();
+            ResetLightingProbeState();
+            ResetVesselShadowProbeState();
             s_captures.Clear();
             s_lastSnapshot = null;
             s_nativeClear = null;
@@ -1570,7 +1633,10 @@ namespace KSARS.Visuals
             reason = "no eligible source candidate";
             limitedByPixels = false;
 
-            double3 relativePosition = snapshot.MainCamera.GetPositionEgo(body);
+            // Rest geometry only: the media probe may have rewritten
+            // GetPositionEgo to apparent positions for native consumers, but
+            // source candidates, transforms, and captures run on rest vectors.
+            double3 relativePosition = body.GetPositionEcl() - snapshot.MainCamera.PositionEcl;
             if (!IsFinite(relativePosition))
             {
                 return false;
@@ -1889,7 +1955,9 @@ namespace KSARS.Visuals
                 return;
             }
 
-            double3 relativePosition = snapshot.MainCamera.GetPositionEgo(sun);
+            // Rest geometry only: the media probe now transforms GetPositionEgo
+            // for the sun too; solar candidates/captures run on rest vectors.
+            double3 relativePosition = sun.GetPositionEcl() - snapshot.MainCamera.PositionEcl;
             if (!IsFinite(relativePosition))
             {
                 s_solarStatus = $"solar probe waiting: {sun.Id} nonfinite relative position";
@@ -2991,7 +3059,9 @@ namespace KSARS.Visuals
                 return;
             }
 
-            double3 relativePosition = snapshot.MainCamera.GetPositionEgo(sun);
+            // Rest geometry only: the media probe now transforms GetPositionEgo
+            // for the sun too; solar candidates/captures run on rest vectors.
+            double3 relativePosition = sun.GetPositionEcl() - snapshot.MainCamera.PositionEcl;
             if (!IsFinite(relativePosition))
             {
                 s_mainSolarStatus = $"main solar waiting: {sun.Id} nonfinite relative position; native Sun path retained";

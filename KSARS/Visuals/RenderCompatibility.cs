@@ -330,6 +330,7 @@ namespace KSARS.Visuals
             new("KSA.Program", "_cameraData", true, T("KSA.UboCameraData[]")),
             new("KSA.Program", "_lightingData", true, T("KSA.UboLightingData[]")),
             new("KSA.Program", "_celestialData", true, T("KSA.UboCelestialData[]")),
+            new("KSA.Program", "_sunPositionEgo", true, T("Brutal.Numerics.double3")),
             new("KSA.Program", "_vesselData", true, T("KSA.UboVesselData[]")),
             new("KSA.SunbloomRenderer", "_sunflareMemory", false, T("Brutal.VulkanApi.Abstractions.MappedMemory")),
             new("KSA.SunbloomRenderer", "_sunflareBuffers", false, T("Brutal.VulkanApi.Abstractions.BufferEx")),

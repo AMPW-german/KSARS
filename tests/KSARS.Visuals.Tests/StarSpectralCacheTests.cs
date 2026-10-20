@@ -81,5 +81,33 @@ namespace KSARS.Visuals.Tests
             Assert.Contains("Rec709/D65", second.Describe());
             Assert.Contains("not measured", second.Describe());
         }
+
+        // The beaming exponent separates resolved disks from point sources:
+        // for the sun the thermal luminance ratio lum(D*T)/lum(T) is the whole
+        // observed flux ratio (D^4 surface brightness, unchanged solid angle),
+        // while point sources add the photon-energy-times-arrival-rate D^2.
+        // The two evaluations must differ by exactly 2*ln(D) in log flux and
+        // agree on chromaticity.
+        [Fact]
+        public void BeamingExponent_ShiftsLogFluxOnly()
+        {
+            var table = ThermalSpectrumTable.LoadEmbedded();
+            var fitter = new StellarTemperatureFitter(t =>
+            {
+                ThermalSample sample = table.Evaluate(t);
+                return (sample.X, sample.Y, sample.Z);
+            });
+            Assert.True(SpectralColorSpace.TryLinearRgbToXyz(1.0, 0.95, 0.85, out var xyz));
+            Assert.True(StellarSpectrumModel.TryCreate(table, fitter,
+                xyz.X, xyz.Y, xyz.Z, out StellarSpectrumModel? model));
+
+            const double doppler = 1.7;
+            Assert.True(model!.TryEvaluate(doppler, 0.0, out StellarEmission disk));
+            Assert.True(model.TryEvaluate(doppler, 2.0, out StellarEmission point));
+            Assert.Equal(disk.X, point.X, 15);
+            Assert.Equal(disk.Y, point.Y, 15);
+            Assert.Equal(disk.Z, point.Z, 15);
+            Assert.Equal(2.0 * Math.Log(doppler), point.LogFlux - disk.LogFlux, 12);
+        }
     }
 }

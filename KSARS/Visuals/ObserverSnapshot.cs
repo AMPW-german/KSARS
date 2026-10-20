@@ -182,6 +182,11 @@ namespace KSARS.Visuals
             UboVesselData vesselData = GlobalShaderBindings.VesselData(shaderSlot);
             UboGlobalConstants constants = GlobalShaderBindings.Constants;
 
+            // The media probe rewrites the global copies to apparent
+            // positions; probes consume rest geometry, so reconstruct it.
+            RelativisticSpaceRenderer.RestoreRestBodyPositions(camera,
+                ref lightingData, ref celestialData);
+
             if (!IsFinite(cameraData.View) || !IsFinite(cameraData.Projection)
                 || !IsFinite(cameraData.InverseView) || !IsFinite(cameraData.InverseProjection)
                 || !IsFinite(cameraData.ViewProjection))

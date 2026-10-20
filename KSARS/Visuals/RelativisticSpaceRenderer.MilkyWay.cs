@@ -100,7 +100,7 @@ namespace KSARS.Visuals
                 s_milkyWayRenderMethod = render;
                 s_milkyWayProbeInstalled = true;
                 s_milkyWayFailed = false;
-                s_milkyWayStatus = "milky way probe installed: adapted native fragment armed (inverse aberration + Doppler-shifted effective-temperature band + CMB term); native draw suppressed only per successfully recorded call";
+                s_milkyWayStatus = "milky way probe installed: adapted native fragment armed (inverse aberration + Doppler-shifted effective-temperature band); native draw suppressed only per successfully recorded call";
                 Console.WriteLine($"KSARS: {s_milkyWayStatus}");
                 return true;
             }
@@ -155,7 +155,7 @@ namespace KSARS.Visuals
 
                 pass.Record(__0, __1, in observer);
                 s_milkyWayPresented++;
-                s_milkyWayStatus = $"milky way probe presented: inverse aberration + Doppler-shifted effective-temperature band + CMB term active; native draw skipped this call only; GPU output unverified{(s_betaOverrideEnabled ? $"; OBSERVER OVERRIDE beta={s_betaOverride:G12}" : "")}";
+                s_milkyWayStatus = $"milky way probe presented: inverse aberration + Doppler-shifted effective-temperature band active; native draw skipped this call only; GPU output unverified{(s_betaOverrideEnabled ? $"; OBSERVER OVERRIDE beta={s_betaOverride:G12}" : "")}";
                 return false;
             }
             catch (Exception ex)

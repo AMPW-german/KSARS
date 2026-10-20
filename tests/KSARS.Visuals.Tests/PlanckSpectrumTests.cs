@@ -48,13 +48,13 @@ namespace KSARS.Visuals.Tests
         }
 
         [Fact]
-        public void Cmb_VisibleRestTailUnderflowsButBlueShiftIsNonzero()
+        public void ColdTail_VisibleRestUnderflowsButBlueShiftIsNonzero()
         {
-            Assert.Equal(0.0, Radiance(555e-9, 2.7255));
-            Assert.True(PlanckSpectrum.TryLogWavelengthRadiance(555e-9, 2.7255, out double logTail));
+            Assert.Equal(0.0, Radiance(555e-9, 2.5));
+            Assert.True(PlanckSpectrum.TryLogWavelengthRadiance(555e-9, 2.5, out double logTail));
             Assert.True(double.IsFinite(logTail));
             Assert.True(logTail < -1000.0);
-            Assert.True(Radiance(555e-9, 2.7255 * 2000.0) > 0.0);
+            Assert.True(Radiance(555e-9, 2.5 * 2000.0) > 0.0);
         }
 
         [Fact]

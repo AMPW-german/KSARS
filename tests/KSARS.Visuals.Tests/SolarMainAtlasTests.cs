@@ -669,7 +669,12 @@ namespace KSARS.Visuals.Tests
             var refs = FieldRefsOf(prep);
 
             Assert.Equal(1, CountCalls(calls, "KSA.Universe", "get_WorldSun"));
-            Assert.Equal(1, CountCalls(calls, "KSA.Camera", "GetPositionEgo"));
+            // The media probe patches Camera.GetPositionEgo to apparent
+            // positions; solar candidates must keep rest geometry via the
+            // direct ECL difference.
+            Assert.Equal(0, CountCalls(calls, "KSA.Camera", "GetPositionEgo"));
+            Assert.Equal(1, calls.Count(c => c.Name == "GetPositionEcl"));
+            Assert.Equal(1, calls.Count(c => c.Name == "get_PositionEcl"));
             Assert.Equal(1, CountCalls(calls, "KSARS.Visuals.AtlasProjection", "TryCreate"));
             Assert.Equal(1, CountCalls(calls, "KSARS.Visuals.SolarSourceGeometry", "TryCreate"));
             Assert.Equal(1, CountCalls(calls, "KSARS.Visuals.SolarCoverageProbe", "GeometryUploadSupported"));

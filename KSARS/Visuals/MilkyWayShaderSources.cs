@@ -12,9 +12,7 @@ namespace KSARS.Visuals
     //      rest direction and yields the per-ray Doppler factor.
     //   3. Before output: the composited band radiance is Doppler-shifted as
     //      an effective-temperature extended source (the temperature shift
-    //      absorbs the D^3 intensity transform for a thermal-modeled band),
-    //      and the all-sky CMB blackbody at T=2.725*D is added. The CMB
-    //      visible luminance is ~0 at rest, so output is stock at beta 0.
+    //      absorbs the D^3 intensity transform for a thermal-modeled band).
     // The injection fails closed: any missing or duplicated seam throws, and
     // the caller keeps native rendering instead.
     internal sealed class MilkyWayShaderSources
@@ -139,10 +137,6 @@ namespace KSARS.Visuals
                 "    float ksarsDoppler;\n    sampleDir = ksarsRestDirection(sampleDir, ksarsDoppler);\n",
                 "aberration");
             text = ReplaceOnce(text,
-                "        outColor = vec4(0.0, 0.0, 0.0, 1.0);",
-                "        outColor = vec4(ksarsRelativisticBackground(vec3(0.0), ksarsDoppler), 1.0);",
-                "masked-CMB");
-            text = ReplaceOnce(text,
                 "    outColor = vec4(result, 1.0);",
                 "    result = ksarsRelativisticBackground(result, ksarsDoppler);\n    outColor = vec4(result, 1.0);",
                 "output");
@@ -163,14 +157,17 @@ namespace KSARS.Visuals
 
             // Effective band temperature: the Milky Way texture is a mix of
             // starlight and dust; a ~5000 K thermal model is a documented
-            // first-order approximation for its Doppler chroma shift.
-            const float KSARS_MW_TEFF  = 5000.0;
-            const float KSARS_CMB_REST = 2.725;
-            // Display anchor for the CMB: scaled so a 5772 K-shifted CMB is
-            // roughly band-bright. Uncalibrated; the CMB is invisible until
-            // D >> 1 anyway (T*D must reach the visible band).
-            const float KSARS_CMB_GAIN = 0.5;
-            const float KSARS_CMB_REF  = 5772.0;
+            // first-order approximation for its Doppler chroma shift. The
+            // prior is only valid inside a limited temperature window: past
+            // KSARS_MW_TEFF_VALID the fake Rayleigh-Jeans tail of the 5000 K
+            // model would glow as a saturated blue point forever (the real
+            // composite spectrum's visible window has long since shifted
+            // past), so the band term fades out over [VALID, GONE] and lets
+            // the true blackbody terms - the catalog stars - own the
+            // extreme-beta cap. The sky correctly goes dark in between.
+            const float KSARS_MW_TEFF       = 5000.0;
+            const float KSARS_MW_TEFF_VALID = 4.0e4;
+            const float KSARS_MW_TEFF_GONE  = 2.0e5;
 
             vec4 ksarsSpectrum(float temperature) {
                 if (temperature > 1e8) {
@@ -213,46 +210,39 @@ namespace KSARS.Visuals
                 return normalize(u * (q * q * B - A) + nPerp * (2.0 * q));
             }
 
-            // CMB blackbody at T = 2.725*D. Its visible luminance is
-            // effectively zero until D pushes it into the visible band, so
-            // the term vanishes at rest and becomes visible only at
-            // extreme beta. Anchored to a ~solar-photosphere scale.
-            vec3 ksarsCmb(float doppler) {
-                vec4 shifted = ksarsSpectrum(KSARS_CMB_REST * doppler);
-                vec4 anchor  = ksarsSpectrum(KSARS_CMB_REF);
-                if (!(shifted.y > 0.0) || !(anchor.y > 0.0)) return vec3(0.0);
-                return ksarsDisplayRgb(shifted.xyz)
-                    * exp(shifted.w - anchor.w) * KSARS_CMB_GAIN;
-            }
-
             // Extended-source transform: for a thermal-modeled band the D^3
             // intensity transform is absorbed into the shifted temperature,
             // so the visible-band scale is just visLum(T*D)/visLum(T). The
             // off-locus residual gain is preserved the same way the star
-            // path treats non-thermal color structure.
+            // path treats non-thermal color structure. mwFade is the
+            // model-validity fade: once the band's effective temperature
+            // leaves the window where a 5000 K prior means anything, the
+            // band's contribution goes to zero rather than glowing as a
+            // saturated blue point.
             vec3 ksarsRelativisticBackground(vec3 rest, float doppler) {
                 if (doppler == 1.0) return rest;
-                vec3 cmb = ksarsCmb(doppler);
+                float mwFade = 1.0 - smoothstep(KSARS_MW_TEFF_VALID, KSARS_MW_TEFF_GONE,
+                    KSARS_MW_TEFF * doppler);
                 float restY = dot(rest, vec3(0.212639006, 0.715168679, 0.072192315));
-                if (!(restY > 0.0) || !(doppler > 0.0)) return rest + cmb;
+                if (!(restY > 0.0) || !(doppler > 0.0)) return rest * mwFade;
                 vec3 xyz = vec3(
                     dot(rest, vec3(0.412390799, 0.357584339, 0.180480788)),
                     restY,
                     dot(rest, vec3(0.019330819, 0.119194780, 0.950532152)));
                 float sum = xyz.x + xyz.y + xyz.z;
-                if (!(sum > 0.0)) return rest + cmb;
+                if (!(sum > 0.0)) return rest * mwFade;
                 vec3 originalXyz = xyz / sum;
                 vec4 restS = ksarsSpectrum(KSARS_MW_TEFF);
                 vec4 shiftS = ksarsSpectrum(KSARS_MW_TEFF * doppler);
-                if (!(shiftS.y > 0.0) || !(restS.y > 0.0)) return rest + cmb;
+                if (!(shiftS.y > 0.0) || !(restS.y > 0.0)) return rest * mwFade;
                 float logD = log(doppler);
                 float weight = exp(-logD * logD);
                 vec3 gain = mix(vec3(1.0), originalXyz / restS.xyz, weight);
                 vec3 chroma = shiftS.xyz * gain;
                 float csum = chroma.x + chroma.y + chroma.z;
-                if (!(csum > 0.0)) return rest + cmb;
+                if (!(csum > 0.0)) return rest * mwFade;
                 vec3 rgbPerY = ksarsDisplayRgb(chroma / csum);
-                return rgbPerY * restY * exp(shiftS.w - restS.w) + cmb;
+                return rgbPerY * restY * exp(shiftS.w - restS.w) * mwFade;
             }
 
             """;

@@ -47,9 +47,17 @@ namespace KSARS.Visuals
         // relativistic beaming (photon energy and arrival rate each scale by D).
         // Absolute catalog scale/PSF calibration is a separate input, not inferred here.
         internal bool TryEvaluate(double doppler, out StellarEmission emission)
+            => TryEvaluate(doppler, 2.0, out emission);
+
+        // beamingExponent separates unresolved point sources (2: photon energy
+        // and arrival rate each scale by D while aberration collapses the
+        // apparent solid angle) from resolved disks (0: the thermal luminance
+        // ratio lum(D*T)/lum(T) already carries the full D^4 surface-brightness
+        // scaling, and the disk's solid angle is unchanged).
+        internal bool TryEvaluate(double doppler, double beamingExponent, out StellarEmission emission)
         {
             emission = default;
-            if (!double.IsFinite(doppler) || !(doppler > 0.0))
+            if (!double.IsFinite(doppler) || !(doppler > 0.0) || !double.IsFinite(beamingExponent))
                 return false;
             if (doppler == 1.0)
             {
@@ -78,7 +86,7 @@ namespace KSARS.Visuals
             if (!(sum > 0.0) || !(y > 0.0))
                 return false;
             emission = new StellarEmission(x / sum, y / sum, z / sum,
-                _logRestLuminance + shifted.LogLuminance - _thermalRest.LogLuminance + 2.0 * logD);
+                _logRestLuminance + shifted.LogLuminance - _thermalRest.LogLuminance + beamingExponent * logD);
             return true;
         }
     }

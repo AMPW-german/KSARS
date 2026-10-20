@@ -43,12 +43,8 @@ namespace KSARS.Visuals.Tests
             Assert.Contains("set = 2, binding = 0", sources.Fragment);
             Assert.Contains("float ksarsDoppler;", sources.Fragment);
             Assert.Contains("sampleDir = ksarsRestDirection(sampleDir, ksarsDoppler);", sources.Fragment);
-            Assert.Contains("outColor = vec4(ksarsRelativisticBackground(vec3(0.0), ksarsDoppler), 1.0);",
-                sources.Fragment);
             Assert.Contains("result = ksarsRelativisticBackground(result, ksarsDoppler);", sources.Fragment);
             Assert.Contains("vec4 ksarsSpectrum(float temperature)", sources.Fragment);
-            Assert.Contains("vec3 ksarsCmb(float doppler)", sources.Fragment);
-            Assert.Contains("KSARS_CMB_REST * doppler", sources.Fragment);
             Assert.Contains("KSARS_MW_TEFF * doppler", sources.Fragment);
             Assert.Contains("exp(shiftS.w - restS.w)", sources.Fragment);
             Assert.Contains("u * (q * q * B - A) + nPerp * (2.0 * q)", sources.Fragment);

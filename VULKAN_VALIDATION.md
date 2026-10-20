@@ -337,4 +337,4 @@ This acceptance applies to the tested views only. All recorded CPU-test and VVL 
 above stands, and the documented limitations remain: unverified mathematical extremes and
 calibration are still not proved, and no claim of full mathematical or GPU correctness is
 made. The next implementation work is the spectral foundation — a prerequisite for the
-phase-5 stars/Milky Way/CMB scope.
+phase-5 stars/Milky Way scope.

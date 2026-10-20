@@ -16,10 +16,10 @@ namespace KSARS.Visuals
     // descriptor set for the camera UBO, and the native texture set (galaxy
     // cubemap + generated noise) discovered on the live MilkyWayRenderer
     // instance; only the thermal spectrum table lives in an owned buffer.
-    // The fragment shader is the installed MilkyWay.frag with three injected
-    // seams: inverse aberration of the reconstructed view direction, a
-    // Doppler-shifted effective-temperature transform of the band radiance,
-    // and an all-sky CMB blackbody term that is ~0 at rest. The native
+    // The fragment shader is the installed MilkyWay.frag with two injected
+    // seams: inverse aberration of the reconstructed view direction and a
+    // Doppler-shifted effective-temperature transform of the band radiance.
+    // The native
     // ITERATIONS specialization constant is preserved, and depth-test-no-write
     // additive blending matches the native contract.
     internal sealed class RelativisticMilkyWayPass : IDisposable
