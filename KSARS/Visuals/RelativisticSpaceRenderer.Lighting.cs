@@ -225,7 +225,8 @@ namespace KSARS.Visuals
         {
             try
             {
-                if (s_lightingProbeInstalled && !s_lightingFailed && !s_recordingDisabled
+                if ((s_lightingProbeInstalled || s_sunbloomBound)
+                    && !s_lightingFailed && !s_recordingDisabled
                     && s_getGlobalFrameIndex is { } getFrameIndex
                     && Program.MainViewport is { } main
                     && viewportIndex == main.ShaderSlot

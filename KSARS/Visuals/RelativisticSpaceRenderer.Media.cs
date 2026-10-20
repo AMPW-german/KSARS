@@ -71,6 +71,17 @@ namespace KSARS.Visuals
         private static long s_mediaShadingRestored;
         private static FieldInfo? s_lightingDataField;
         private static FieldInfo? s_sunPositionEgoField;
+        // The sunbloom pass (inner-sun disc ray test, occlusion mask, sun
+        // visibility and ghost generation) is a rendered-only consumer of
+        // UboLightingData::SunPositionRadius: everything it draws belongs to
+        // the apparent sun even though the field stays rest for real shading.
+        // Its GlobalShaderBindings::DescriptorSet calls are retargeted to the
+        // owned apparent-sun copy (DescriptorSetOrNative); anchors are counted
+        // at patch time because the renderer's internals are opaque.
+        private static MethodInfo? s_sunbloomNativeSet;
+        private static MethodInfo? s_sunbloomApparentSet;
+        private static int s_sunbloomAnchors;
+        private static bool s_sunbloomBound;
         private static string s_mediaStatus = "media probe not installed";
 
         internal static bool TryInstallMediaProbe(Harmony harmony,
@@ -145,6 +156,44 @@ namespace KSARS.Visuals
                     harmony.Patch(updateShaderData, postfix: new HarmonyMethod(shadingPostfix));
                     patched.Add(updateShaderData);
 
+                    // The sunbloom pass is a rendered-only consumer of
+                    // UboLightingData::SunPositionRadius: its inner-sun disc
+                    // test, occlusion mask, visibility and ghost chain belong
+                    // to the apparent sun even though the field stays rest for
+                    // real shading. Retarget its DescriptorSet calls to the
+                    // owned apparent-sun copy. Optional: a missing type or
+                    // zero anchors leaves the native rest anchor, which is a
+                    // cosmetic defect rather than a shading fault.
+                    Type? sunbloomType = typeof(Program).Assembly.GetType("KSA.SunbloomRenderer");
+                    s_sunbloomNativeSet = typeof(GlobalShaderBindings).GetMethod(
+                        nameof(GlobalShaderBindings.DescriptorSet), BindingFlags.Public | BindingFlags.Static);
+                    s_sunbloomApparentSet = typeof(RelativisticSpaceRenderer).GetMethod(
+                        nameof(DescriptorSetOrNative), BindingFlags.NonPublic | BindingFlags.Static);
+                    if (sunbloomType is not null && s_sunbloomNativeSet is not null
+                        && s_sunbloomApparentSet is not null)
+                    {
+                        MethodInfo? sunbloomTranspiler = typeof(RelativisticSpaceRenderer).GetMethod(
+                            nameof(TranspileSunbloomDescriptorSet), BindingFlags.NonPublic | BindingFlags.Static);
+                        if (sunbloomTranspiler is not null)
+                        {
+                            foreach (MethodInfo target in sunbloomType.GetMethods(
+                                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
+                                    | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                            {
+                                if (target.IsSpecialName || target.IsAbstract
+                                    || target.ContainsGenericParameters)
+                                {
+                                    continue;
+                                }
+
+                                harmony.Patch(target, transpiler: new HarmonyMethod(sunbloomTranspiler));
+                                patched.Add(target);
+                            }
+
+                            s_sunbloomBound = s_sunbloomAnchors > 0;
+                        }
+                    }
+
                     if (s_mediaAnchorMissed)
                     {
                         throw new InvalidOperationException(
@@ -169,7 +218,7 @@ namespace KSARS.Visuals
 
                 s_mediaInstalled = true;
                 s_mediaFailed = false;
-                s_mediaStatus = "media probe installed: apparent body positions bound at Camera::GetPositionEgo for main viewport (CelestialData bodies, planet lighting position, sun position, distant spheres, ocean, atmosphere, rings, orbit lines) plus planet-relative camera positions for ocean/atmosphere/cloud compute paths; per-argument relative velocity, co-moving bodies keep rest geometry; native shading keeps the rest-frame sun (SunPositionRadius, CSM); position-only, media radiance keeps rest colors";
+                s_mediaStatus = $"media probe installed: apparent body positions bound at Camera::GetPositionEgo for main viewport (CelestialData bodies, planet lighting position, sun position, distant spheres, ocean, atmosphere, rings, orbit lines) plus planet-relative camera positions for ocean/atmosphere/cloud compute paths; per-argument relative velocity, co-moving bodies keep rest geometry; native shading keeps the rest-frame sun (SunPositionRadius, CSM); sunbloom rebind anchors={s_sunbloomAnchors}; position-only, media radiance keeps rest colors";
                 Console.WriteLine($"KSARS: {s_mediaStatus}");
                 return true;
             }
@@ -383,6 +432,15 @@ namespace KSARS.Visuals
             }
         }
 
+        // Debug bisect gates: KSARS_MEDIA_NOSUNREST leaves UboLightingData::
+        // SunPositionRadius apparent and KSARS_MEDIA_NOCSMREST leaves
+        // Program::_sunPositionEgo apparent. Diagnoses which restified field
+        // anchors a rendered artifact; not a supported configuration.
+        private static readonly bool s_skipSunRadiusRest =
+            Environment.GetEnvironmentVariable("KSARS_MEDIA_NOSUNREST") == "1";
+        private static readonly bool s_skipCsmRest =
+            Environment.GetEnvironmentVariable("KSARS_MEDIA_NOCSMREST") == "1";
+
         // Postfix on Program::UpdateShaderData(double, IViewport). Native
         // fills both rendered outputs (sun mesh, flare, SunDot) and shading
         // inputs (SunPositionRadius, _sunPositionEgo) from one apparent ego
@@ -395,7 +453,12 @@ namespace KSARS.Visuals
         {
             try
             {
-                Camera? camera = viewport?.GetCamera();
+                if (viewport is null)
+                {
+                    return;
+                }
+
+                Camera? camera = viewport.GetCamera();
                 if (!IsMediaTransformActive(camera) || Universe.WorldSun is not { } sun)
                 {
                     return;
@@ -407,7 +470,8 @@ namespace KSARS.Visuals
                     return;
                 }
 
-                if (s_lightingDataField?.GetValue(__instance) is UboLightingData[] lighting
+                if (!s_skipSunRadiusRest
+                    && s_lightingDataField?.GetValue(__instance) is UboLightingData[] lighting
                     && (uint)viewport.ShaderSlot < (uint)lighting.Length)
                 {
                     lighting[viewport.ShaderSlot].SunPositionRadius = new float4(
@@ -415,7 +479,7 @@ namespace KSARS.Visuals
                         lighting[viewport.ShaderSlot].SunPositionRadius.W);
                 }
 
-                if (viewport.IsMain())
+                if (!s_skipCsmRest && viewport.IsMain())
                 {
                     s_sunPositionEgoField?.SetValue(__instance, restSun);
                 }
@@ -428,6 +492,33 @@ namespace KSARS.Visuals
                 s_mediaStatus = $"media probe disabled after shading-rest fault ({ex.GetType().Name}: {ex.Message}); native body positions retained";
                 Console.WriteLine($"KSARS: {s_mediaStatus}");
             }
+        }
+
+        // Replaces every GlobalShaderBindings::DescriptorSet call inside the
+        // sunbloom renderer with DescriptorSetOrNative so the pass binds the
+        // owned apparent-sun lighting copy. Tolerant: methods without the
+        // call are left untouched; the count feeds s_sunbloomBound/status.
+        internal static IEnumerable<CodeInstruction> TranspileSunbloomDescriptorSet(
+            IEnumerable<CodeInstruction> instructions)
+        {
+            List<CodeInstruction> list = instructions.ToList();
+            if (s_sunbloomNativeSet is null || s_sunbloomApparentSet is null)
+            {
+                return list;
+            }
+
+            foreach (CodeInstruction instruction in list)
+            {
+                if (instruction.opcode == System.Reflection.Emit.OpCodes.Call
+                    && instruction.operand is MethodInfo method
+                    && method.Equals(s_sunbloomNativeSet))
+                {
+                    instruction.operand = s_sunbloomApparentSet;
+                    s_sunbloomAnchors++;
+                }
+            }
+
+            return list;
         }
 
         // Rewrites the IL pattern
@@ -639,12 +730,16 @@ namespace KSARS.Visuals
             s_mediaShadingRestored = 0;
             s_lightingDataField = null;
             s_sunPositionEgoField = null;
+            s_sunbloomNativeSet = null;
+            s_sunbloomApparentSet = null;
+            s_sunbloomAnchors = 0;
+            s_sunbloomBound = false;
             s_mediaStatus = "media probe not installed";
         }
 
         internal static string MediaStatus =>
             s_mediaInstalled && !s_mediaFailed
-                ? $"media probe active: apparent body positions via relative-velocity aberration (sun included); native shading keeps rest sun/CSM; transforms={s_mediaTransformed} transpiledCalls={s_mediaTranspiledCalls} shadingRest={s_mediaShadingRestored}; media radiance rest-colored; position-only scope"
+                ? $"media probe active: apparent body positions via relative-velocity aberration (sun included); native shading keeps rest sun/CSM; sunbloom apparent-bound={(s_sunbloomBound ? $"yes ({s_sunbloomAnchors} anchors)" : "no")}; transforms={s_mediaTransformed} transpiledCalls={s_mediaTranspiledCalls} shadingRest={s_mediaShadingRestored}{(s_skipSunRadiusRest ? " NOSUNREST" : "")}{(s_skipCsmRest ? " NOCSMREST" : "")}; media radiance rest-colored; position-only scope"
                 : s_mediaStatus;
     }
 }

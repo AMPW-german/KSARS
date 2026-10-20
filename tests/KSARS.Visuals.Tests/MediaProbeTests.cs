@@ -114,14 +114,17 @@ namespace KSARS.Visuals.Tests
                 .Where(i => i.OpCode == OpCodes.Ldstr)
                 .Select(i => (string)i.Operand)
                 .ToArray();
-            // The five planet-relative camera-position methods and the ego
-            // seam must all be named so signature drift fails closed.
+            // The five planet-relative camera-position methods, the ego seam,
+            // and the shading-rest postfix/fields must all be named so
+            // signature drift fails closed.
             foreach (string required in new[]
             {
                 "GetPositionEgo", "GetPositionEgoPostfix",
                 "TranspileRelativeCameraPositions", "RelativeCameraPosition",
                 "Render", "RenderWithCompute", "UpdateShadowVolume",
                 "RenderVolumetricTrailsOnly",
+                "UpdateShaderData", "UpdateShaderDataShadingRestPostfix",
+                "_lightingData", "_sunPositionEgo",
             })
             {
                 Assert.Contains(strings, s => s == required || s.Contains(required));
