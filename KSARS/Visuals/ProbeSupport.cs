@@ -1,5 +1,48 @@
 namespace KSARS.Visuals
 {
+    internal sealed class ProbeCaptureGeneration
+    {
+        internal const int MaxGenerations = 3;
+
+        internal int Generation { get; private set; }
+        internal bool Queued { get; private set; }
+        internal bool BudgetExhausted => Generation + 1 >= MaxGenerations;
+
+        internal bool TryQueue()
+        {
+            if (BudgetExhausted)
+            {
+                return false;
+            }
+
+            Queued = true;
+            return true;
+        }
+
+        internal bool TryConsume(bool hasValidSnapshot)
+        {
+            if (!Queued || !hasValidSnapshot)
+            {
+                return false;
+            }
+
+            Queued = false;
+            if (BudgetExhausted)
+            {
+                return false;
+            }
+
+            Generation++;
+            return true;
+        }
+
+        internal void Reset()
+        {
+            Generation = 0;
+            Queued = false;
+        }
+    }
+
     internal static class ProbeAxisProjection
     {
         internal static bool TryGetViewAngles(OpticalVector viewDirection,
@@ -45,6 +88,28 @@ namespace KSARS.Visuals
 
             degrees = Math.Acos(Math.Clamp(na.Dot(nb), -1.0, 1.0)) * (180.0 / Math.PI);
             return double.IsFinite(degrees);
+        }
+    }
+
+    internal static class FrameResourceRetirement
+    {
+        internal static bool TryRetireAfterIdle(IEnumerable<IDisposable> resources, out AggregateException? error)
+        {
+            List<Exception>? errors = null;
+            foreach (IDisposable resource in resources)
+            {
+                try
+                {
+                    resource.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    (errors ??= new List<Exception>()).Add(ex);
+                }
+            }
+
+            error = errors is null ? null : new AggregateException(errors);
+            return error is null;
         }
     }
 }

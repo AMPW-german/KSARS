@@ -64,12 +64,14 @@ namespace KSARS
                 ImGui.Text($"Current speed (relativistic): {current.GetVelocityEcl().Length() / SpeedOfLight:F16} c");
             }
 
+#if DEBUG
             string diagnostics = $"Visuals: {Visuals.RelativisticVisuals.Status}";
             ImGui.Text(diagnostics);
             if (ImGui.Button("Copy diagnostics"))
             {
                 ImGui.SetClipboardText(diagnostics);
             }
+#endif
 
             Visuals.RelativisticVisuals.DrawProbeGui();
             ImGui.End();

@@ -96,6 +96,7 @@ namespace KSARS.Visuals.Tests
             Assert.Equal(0, calls.Count(c => c.Name.Contains("WaitIdle")));
         }
 
+#if DEBUG
         [Fact]
         public void CoordinatorGui_RecaptureButtonOnlyQueuesFlag()
         {
@@ -112,7 +113,9 @@ namespace KSARS.Visuals.Tests
                     || c.DeclaringType.Contains("Adapter") || c.DeclaringType.Contains("Context")
                     || c.DeclaringType.Contains("VkDevice") || c.DeclaringType.Contains("VkQueue"))));
         }
+#endif
 
+#if DEBUG
         [Fact]
         public void CoordinatorGui_RecaptureAndOverridePrecedeNoBodyEarlyReturn()
         {
@@ -125,8 +128,7 @@ namespace KSARS.Visuals.Tests
                 i.Operand is MethodReference mr && mr.DeclaringType.FullName == "Brutal.ImGuiApi.ImGui"
                 && mr.Name == "Button");
             int checkboxIndex = instructions.FindIndex(i =>
-                i.Operand is MethodReference mr && mr.DeclaringType.FullName == "Brutal.ImGuiApi.ImGui"
-                && mr.Name == "Checkbox");
+                i.Operand is MethodReference mr && mr.Name == "DrawSpeedOverrideControls");
             int inputIntIndex = instructions.FindIndex(i =>
                 i.Operand is MethodReference mr && mr.DeclaringType.FullName == "Brutal.ImGuiApi.ImGui"
                 && mr.Name == "InputInt");
@@ -149,6 +151,7 @@ namespace KSARS.Visuals.Tests
             Assert.True(inputIntIndex > earlyReturnCheck,
                 "composite mode/body preview controls stay behind the body-present early return");
         }
+#endif
 
         [Fact]
         public void CoordinatorConsume_HappensAtSourceBoundaryNotGui()

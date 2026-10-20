@@ -542,7 +542,9 @@ namespace KSARS.Visuals.Tests
                 .ToList();
 
             Assert.Contains(strings, s => s.Contains("no CPU readback") && s.Contains("GPU depth acceptance pending"));
+#if DEBUG
             Assert.Contains(strings, s => s.Contains("not native Sun opacity/calibration"));
+#endif
             Assert.Contains(strings, s => s.Contains("x1000 display only") || s.Contains("gain x1000 display only"));
             Assert.DoesNotContain(strings, s => s.Contains("depth verified") || s.Contains("calibrated"));
         }

@@ -4,7 +4,7 @@ using Xunit;
 
 namespace KSARS.Visuals.Tests
 {
-    public class RenderHookTests
+    public class RenderHookContractTests
     {
         private static readonly string ModAssemblyPath = Path.Combine(AppContext.BaseDirectory, "KSARS.dll");
 
@@ -262,6 +262,7 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(method.CustomAttributes, a => a.AttributeType.Name == processorAttributeName);
         }
 
+#if DEBUG
         [Fact]
         public void AfterGui_CopyDiagnosticsButton_GuardsClipboardWrite()
         {
@@ -318,6 +319,7 @@ namespace KSARS.Visuals.Tests
                 .FirstOrDefault(local => local == clipboardLocal, -1);
             Assert.Equal(clipboardLocal, matchingTextLocal);
         }
+#endif
 
         [Fact]
         public void PhysicsConstants_SpeedOfLightIsExact()

@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Security.Cryptography;
@@ -94,6 +94,7 @@ namespace KSARS.Visuals
         private static int s_compositeDebugBody;
         private static bool s_betaOverrideEnabled;
         private static double s_betaOverride = 0.9;
+        private static double s_effectiveBeta;
         private static bool s_overrideUsedCameraDirection;
         private static string s_axisDiagnostic = "axis diagnostic not computed";
 
@@ -336,9 +337,9 @@ namespace KSARS.Visuals
                 throw new InvalidOperationException($"source probe unsupported: native Sun queue boundary {solarQueueReason}");
             }
 
-            s_mainProbeEnabled = Environment.GetEnvironmentVariable("KSARS_ATLAS_MAIN_PROBE") == "1";
+            s_mainProbeEnabled = Environment.GetEnvironmentVariable("KSARS_ATLAS_MAIN_PROBE") != "0";
             s_mainStatus = s_mainProbeEnabled
-                ? "main probe opt-in armed; waiting for fenced frame slot; <=2 resolved bodies, resolved captures require native >6px; observed <=6px bodies omitted (nonphysical visibility simplification), finite HDR clamp 65504; not a complete gate or production renderer"
+                ? "main probe armed; waiting for fenced frame slot; <=2 resolved bodies, resolved captures require native >6px; observed <=6px bodies omitted (nonphysical visibility simplification), D^3 + 5800K chroma shift + finite HDR clamp 65504; ordering + VVL verified, no radiance calibration claim"
                 : "main probe disabled";
 
             if (s_mainProbeEnabled)
@@ -1004,8 +1005,60 @@ namespace KSARS.Visuals
                 : $"{s_status} | {s_mainStatus} | {s_mainSolarStatus} | {solarFlags} | {managedBodies} | {culledBodies} | {omittedBodies} | {nativeOmitted} | {tinyFailure} | mainFirstSubmissionRecorded={s_firstMainRecordLogged} | {epoch} | {s_solarStatus} | {s_solarCoverageStatus} | {s_solarDepthInspectionStatus} | {s_solarGlareStatus} | {s_starStatus} | {s_milkyWayStatus} | {s_lightingStatus} | {s_shadowStatus} | {MediaStatus} | {frozen} | {s_axisDiagnostic}";
         }
 
+        private static void DrawSpeedOverrideControls()
+        {
+            ImGui.Text($"current observer speed: beta={s_effectiveBeta:G9}");
+            ImGui.Checkbox("Override observer speed", ref s_betaOverrideEnabled);
+            if (!s_betaOverrideEnabled)
+            {
+                return;
+            }
+
+            double beta = s_betaOverride;
+            double gamma = 1.0 / Math.Sqrt(1.0 - beta * beta);
+            float gammaFloat = (float)Math.Min(gamma, 1e6);
+            ImGui.SetNextItemWidth(220.0f);
+            if (ImGui.SliderFloat("gamma (log)", ref gammaFloat, 1.0f, 1e6f,
+                    flags: ImGuiSliderFlags.AlwaysClamp | ImGuiSliderFlags.Logarithmic))
+            {
+                double g = Math.Max(1.0, (double)gammaFloat);
+                beta = Math.Sqrt(1.0 - 1.0 / (g * g));
+            }
+
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(130.0f);
+            double betaInput = beta;
+            // Full round-trip precision: extreme-beta test windows sit
+            // below the default "%.6f" resolution.
+            if (ImGui.InputDouble("##betaInput", ref betaInput, format: "%.17g"))
+            {
+                beta = betaInput;
+            }
+
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(110.0f);
+            double gammaInput = gamma;
+            if (ImGui.InputDouble("gamma##gammaInput", ref gammaInput, format: "%.7g"))
+            {
+                double g = Math.Max(1.0, gammaInput);
+                beta = Math.Sqrt(1.0 - 1.0 / (g * g));
+            }
+
+            s_betaOverride = Math.Clamp(beta, 0.0, 1.0 - 1e-15);
+            beta = s_betaOverride;
+            gamma = 1.0 / Math.Sqrt(1.0 - beta * beta);
+            double q = Math.Sqrt((1.0 - beta) / (1.0 + beta));
+#if DEBUG
+            ImGui.Text($"beta={beta:G12} gamma={gamma:G6} q={q:G6} direction={(s_overrideUsedCameraDirection ? "camera forward" : "velocity")}");
+#endif
+        }
+
         internal static void DrawProbeGui()
         {
+#if !DEBUG
+            DrawSpeedOverrideControls();
+            return;
+#else
             ImGui.Separator();
             ImGui.Text("Frozen native source probe (raw HDR preview; no composite/calibration)");
             ImGui.Text(s_status);
@@ -1084,45 +1137,7 @@ namespace KSARS.Visuals
             int frozenCount = s_captures.Count + s_captureArchive.Count
                 + (s_solarCapture is null ? 0 : 1) + s_solarArchive.Count;
             ImGui.Text($"frozen capture budget {frozenCount}/{MaxFrozenCaptures} ({ProbeCaptureGeneration.MaxGenerations} generations x {MaxCaptures} body + 1 solar); solar source is raw color/corona alpha only - no opaque/depth/calibration semantics");
-            ImGui.Checkbox("Override observer speed (probe test)", ref s_betaOverrideEnabled);
-            if (s_betaOverrideEnabled)
-            {
-                double beta = s_betaOverride;
-                double gamma = 1.0 / Math.Sqrt(1.0 - beta * beta);
-                float gammaFloat = (float)Math.Min(gamma, 1e6);
-                ImGui.SetNextItemWidth(220.0f);
-                if (ImGui.SliderFloat("gamma (log)", ref gammaFloat, 1.0f, 1e6f,
-                        flags: ImGuiSliderFlags.AlwaysClamp | ImGuiSliderFlags.Logarithmic))
-                {
-                    double g = Math.Max(1.0, (double)gammaFloat);
-                    beta = Math.Sqrt(1.0 - 1.0 / (g * g));
-                }
-
-                ImGui.SameLine();
-                ImGui.SetNextItemWidth(130.0f);
-                double betaInput = beta;
-                // Full round-trip precision: extreme-beta test windows sit
-                // below the default "%.6f" resolution.
-                if (ImGui.InputDouble("##betaInput", ref betaInput, format: "%.17g"))
-                {
-                    beta = betaInput;
-                }
-
-                ImGui.SameLine();
-                ImGui.SetNextItemWidth(110.0f);
-                double gammaInput = gamma;
-                if (ImGui.InputDouble("gamma##gammaInput", ref gammaInput, format: "%.7g"))
-                {
-                    double g = Math.Max(1.0, gammaInput);
-                    beta = Math.Sqrt(1.0 - 1.0 / (g * g));
-                }
-
-                s_betaOverride = Math.Clamp(beta, 0.0, 1.0 - 1e-15);
-                beta = s_betaOverride;
-                gamma = 1.0 / Math.Sqrt(1.0 - beta * beta);
-                double q = Math.Sqrt((1.0 - beta) / (1.0 + beta));
-                ImGui.Text($"beta={beta:G12} gamma={gamma:G6} q={q:G6} direction={(s_overrideUsedCameraDirection ? "camera forward" : "velocity")}");
-            }
+            DrawSpeedOverrideControls();
 
             if (s_captures.Count == 0)
             {
@@ -1170,6 +1185,7 @@ namespace KSARS.Visuals
                     ImGui.Image(previewComposite.Texture, in size, in uv0, in uv1);
                 }
             }
+#endif
         }
 
         internal static void Shutdown()
@@ -1471,6 +1487,7 @@ namespace KSARS.Visuals
             s_compositeDebugBody = 0;
             s_betaOverrideEnabled = false;
             s_overrideUsedCameraDirection = false;
+            s_effectiveBeta = 0.0;
             s_axisDiagnostic = "axis diagnostic not computed";
             s_compositeStatus = "composite probe not recorded";
             s_lastCandidateReason = "no candidate evaluated";
@@ -2147,6 +2164,7 @@ namespace KSARS.Visuals
             if (!s_betaOverrideEnabled)
             {
                 s_overrideUsedCameraDirection = false;
+                s_effectiveBeta = snapshot.Observer.Speed / PhysicsConstants.SpeedOfLight;
                 return snapshot.Observer;
             }
 
@@ -2167,10 +2185,15 @@ namespace KSARS.Visuals
             }
 
             double beta = Math.Clamp(s_betaOverride, 0.0, 1.0 - 1e-15);
-            return RelativisticOptics.TryCreateVelocity(
-                direction * (beta * PhysicsConstants.SpeedOfLight), out PresentationVelocity observer)
-                ? observer
-                : snapshot.Observer;
+            if (RelativisticOptics.TryCreateVelocity(
+                direction * (beta * PhysicsConstants.SpeedOfLight), out PresentationVelocity observer))
+            {
+                s_effectiveBeta = beta;
+                return observer;
+            }
+
+            s_effectiveBeta = snapshot.Observer.Speed / PhysicsConstants.SpeedOfLight;
+            return snapshot.Observer;
         }
 
         private static void UpdateAxisDiagnostic(ObserverSnapshot snapshot, in PresentationVelocity observer)
@@ -2293,7 +2316,9 @@ namespace KSARS.Visuals
 
                 composite.SyncBodies(sources);
                 PresentationVelocity observer = EffectiveObserver(snapshot);
+#if DEBUG
                 UpdateAxisDiagnostic(snapshot, in observer);
+#endif
                 composite.Record(commandBuffer, snapshot, in observer,
                     s_compositeDebugMode, s_compositeDebugBody);
                 composite.RegisterPreviewTexture();
@@ -2449,7 +2474,9 @@ namespace KSARS.Visuals
             frame.Observer = EffectiveObserver(snapshot);
             if (s_captures.Count == 0)
             {
+#if DEBUG
                 UpdateAxisDiagnostic(snapshot, in frame.Observer);
+#endif
             }
             s_mainOwnership.BeginFrame(snapshot);
 

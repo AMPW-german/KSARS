@@ -14,8 +14,8 @@ namespace KSARS.Visuals
     // MilkyWayRenderer.RenderMilkyWay seam. The prefix records the owned
     // adapted-fragment draw and suppresses the native fullscreen draw only
     // for the call in which every check and the recording itself succeeded;
-    // any failure returns the native draw unchanged. Opt-in via
-    // KSARS_MILKYWAY_PROBE=1.
+    // any failure returns the native draw unchanged. On by default;
+    // KSARS_MILKYWAY_PROBE=0 disables.
     internal static partial class RelativisticSpaceRenderer
     {
         private static MethodInfo? s_milkyWayRenderMethod;

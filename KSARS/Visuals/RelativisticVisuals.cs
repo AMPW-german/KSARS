@@ -4,7 +4,7 @@ namespace KSARS.Visuals
 {
     internal static class RelativisticVisuals
     {
-        private const string DisabledSuffix = "visuals disabled: object-atlas/foreground gate not attempted";
+        private const string DisabledSuffix = "visuals disabled";
 
         private static RenderCompatibility.InspectionResult? s_baseline;
 

@@ -30,8 +30,8 @@ namespace KSARS.Visuals
     // recording so the native CSM pass keeps native bindings. Recording is
     // driven from a postfix on PlanetTransparenciesRenderer::UpdateRingMeshes,
     // which runs inside the main render command buffer after the native
-    // cascade pass and before the offscreen color pass begins. Opt-in via
-    // KSARS_SHADOW_PROBE=1 on top of KSARS_LIGHTING_PROBE=1. SuperMesh pool
+    // cascade pass and before the offscreen color pass begins. On by default;
+    // KSARS_SHADOW_PROBE=0 disables. SuperMesh pool
     // casters stay native-excluded (the bucket mixes world meshes); planet
     // terrain is never drawn into the owned map.
     internal static partial class RelativisticSpaceRenderer

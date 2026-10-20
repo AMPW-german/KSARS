@@ -618,7 +618,7 @@ namespace KSARS.Visuals.Tests
             var allStrings = type.Methods.Where(m => m.HasBody).SelectMany(LoadedStrings).ToList();
             Assert.Contains(allStrings, s => s.Contains("mapped sync-slot mismatch"));
             Assert.Contains(allStrings, s => s.Contains("no slot writes occurred"));
-            Assert.Contains(allStrings, s => s.Contains("not a production renderer"));
+            Assert.Contains(allStrings, s => s.Contains("no radiance calibration claim"));
             Assert.Contains(allStrings, s => s.Contains("syncSlot="));
             Assert.Contains(allStrings, s => s.Contains("resourceFrame="));
         }

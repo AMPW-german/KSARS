@@ -58,9 +58,9 @@ namespace KSARS.Visuals
     //
     // Probes that consume the global shader copies (ObserverSnapshot) must see
     // rest positions: RestoreRestBodyPositions reconstructs them per slot.
-    // Opt-in via KSARS_MEDIA_PROBE=1. Position-only scope: media radiance keeps
-    // rest-frame colors; per-body Doppler spectral treatment of native shader
-    // output is a separate backlog item.
+    // On by default; KSARS_MEDIA_PROBE=0 disables. Position-only scope: media
+    // radiance keeps rest-frame colors; per-body Doppler spectral treatment of
+    // native shader output is a separate backlog item.
     internal static partial class RelativisticSpaceRenderer
     {
         private static bool s_mediaInstalled;
@@ -432,14 +432,22 @@ namespace KSARS.Visuals
             }
         }
 
-        // Debug bisect gates: KSARS_MEDIA_NOSUNREST leaves UboLightingData::
-        // SunPositionRadius apparent and KSARS_MEDIA_NOCSMREST leaves
-        // Program::_sunPositionEgo apparent. Diagnoses which restified field
-        // anchors a rendered artifact; not a supported configuration.
+        // Debug bisect gates (debug builds only): KSARS_MEDIA_NOSUNREST leaves
+        // UboLightingData::SunPositionRadius apparent and KSARS_MEDIA_NOCSMREST
+        // leaves Program::_sunPositionEgo apparent. Diagnoses which restified
+        // field anchors a rendered artifact; not a supported configuration.
         private static readonly bool s_skipSunRadiusRest =
+#if DEBUG
             Environment.GetEnvironmentVariable("KSARS_MEDIA_NOSUNREST") == "1";
+#else
+            false;
+#endif
         private static readonly bool s_skipCsmRest =
+#if DEBUG
             Environment.GetEnvironmentVariable("KSARS_MEDIA_NOCSMREST") == "1";
+#else
+            false;
+#endif
 
         // Postfix on Program::UpdateShaderData(double, IViewport). Native
         // fills both rendered outputs (sun mesh, flare, SunDot) and shading

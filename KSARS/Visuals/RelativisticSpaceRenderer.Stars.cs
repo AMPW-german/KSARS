@@ -12,7 +12,7 @@ namespace KSARS.Visuals
     // InstancedStarTechnique.Render seam. The prefix records the owned Gaussian
     // PSF draw and suppresses the native star draw only for the call in which
     // every check and the recording itself succeeded; any failure returns the
-    // native draw unchanged. Opt-in via KSARS_STAR_PROBE=1.
+    // native draw unchanged. On by default; KSARS_STAR_PROBE=0 disables.
     internal static partial class RelativisticSpaceRenderer
     {
         private static MethodInfo? s_starRenderMethod;

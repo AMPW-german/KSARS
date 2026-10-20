@@ -178,7 +178,7 @@ namespace KSARS.Visuals
             s_harmony = harmony;
             s_status = "startup probe installed; observing allocation boundaries; visuals disabled";
 
-            if (Environment.GetEnvironmentVariable("KSARS_ATLAS_PROBE") == "1")
+            if (Environment.GetEnvironmentVariable("KSARS_ATLAS_PROBE") != "0")
             {
                 MethodBase? renderGame = null;
                 MethodBase? rebuildRenderer = null;
@@ -196,11 +196,11 @@ namespace KSARS.Visuals
                         if (distanceData is not null && distanceDataTranspiler is not null)
                         {
                             harmony.Patch(distanceData, transpiler: new HarmonyMethod(distanceDataTranspiler));
-                            s_status += "; opt-in source probe installed with verified rebuild-idle retirement boundary and main-view tiny-body omission filter (commands only, GPU output unverified)";
+                            s_status += "; source probe installed with verified rebuild-idle retirement boundary and main-view tiny-body omission filter";
                         }
                         else
                         {
-                            s_status += "; opt-in source probe installed with verified rebuild-idle retirement boundary (commands only, GPU output unverified)";
+                            s_status += "; source probe installed with verified rebuild-idle retirement boundary";
                         }
                     }
                 }
@@ -272,7 +272,7 @@ namespace KSARS.Visuals
                 }
             }
 
-            if (Environment.GetEnvironmentVariable("KSARS_STAR_PROBE") == "1")
+            if (Environment.GetEnvironmentVariable("KSARS_STAR_PROBE") != "0")
             {
                 try
                 {
@@ -291,7 +291,7 @@ namespace KSARS.Visuals
                 }
             }
 
-            if (Environment.GetEnvironmentVariable("KSARS_MILKYWAY_PROBE") == "1")
+            if (Environment.GetEnvironmentVariable("KSARS_MILKYWAY_PROBE") != "0")
             {
                 try
                 {
@@ -305,7 +305,7 @@ namespace KSARS.Visuals
                 }
             }
 
-            if (Environment.GetEnvironmentVariable("KSARS_LIGHTING_PROBE") == "1")
+            if (Environment.GetEnvironmentVariable("KSARS_LIGHTING_PROBE") != "0")
             {
                 try
                 {
@@ -319,7 +319,7 @@ namespace KSARS.Visuals
                 }
             }
 
-            if (Environment.GetEnvironmentVariable("KSARS_SHADOW_PROBE") == "1")
+            if (Environment.GetEnvironmentVariable("KSARS_SHADOW_PROBE") != "0")
             {
                 try
                 {
@@ -333,7 +333,7 @@ namespace KSARS.Visuals
                 }
             }
 
-            if (Environment.GetEnvironmentVariable("KSARS_MEDIA_PROBE") == "1")
+            if (Environment.GetEnvironmentVariable("KSARS_MEDIA_PROBE") != "0")
             {
                 try
                 {
@@ -429,7 +429,7 @@ namespace KSARS.Visuals
             renderGame = target;
             rebuildRenderer = rebuild;
 
-            bool mainProbe = Environment.GetEnvironmentVariable("KSARS_ATLAS_MAIN_PROBE") == "1";
+            bool mainProbe = Environment.GetEnvironmentVariable("KSARS_ATLAS_MAIN_PROBE") != "0";
             Type? type = typeof(RenderHooks).Assembly.GetType("KSARS.Visuals.RelativisticSpaceRenderer", throwOnError: false);
             MethodInfo? prepare = type?.GetMethod("PrepareProbe", BindingFlags.NonPublic | BindingFlags.Static);
             MethodInfo? transpiler = type?.GetMethod("TranspileMainRenderGame", BindingFlags.NonPublic | BindingFlags.Static);

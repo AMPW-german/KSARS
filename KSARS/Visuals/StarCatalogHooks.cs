@@ -8,7 +8,7 @@ using KSA;
 
 namespace KSARS.Visuals
 {
-    // Opt-in, read-only capture seam for KSA.Mod::LoadStarBinaries. The single
+    // Read-only capture seam for KSA.Mod::LoadStarBinaries. The single
     // native InstancedStarTechnique::AddInstance call is routed through a static
     // wrapper that always invokes the native method exactly once first, then
     // records the raw record into StarCatalog. Native draws, file reads, and

@@ -214,10 +214,12 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(status.Body.Instructions,
                 i => i.OpCode == OpCodes.Ldsfld && i.Operand is FieldReference f
                     && f.Name == "s_shadowStatus");
+#if DEBUG
             MethodDefinition gui = type.Methods.Single(m => m.Name == "DrawProbeGui");
             Assert.Contains(gui.Body.Instructions,
                 i => i.OpCode == OpCodes.Ldsfld && i.Operand is FieldReference f
                     && f.Name == "s_shadowStatus");
+#endif
         }
     }
 }

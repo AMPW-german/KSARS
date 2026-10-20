@@ -27,7 +27,7 @@ namespace KSARS.Visuals
     // apparent-space disk test reproduces that verdict exactly. Planets,
     // terrain, shadow maps, prepass, and every secondary viewport keep the
     // native rest lighting. Any failure returns the untouched native set.
-    // Opt-in via KSARS_LIGHTING_PROBE=1.
+    // On by default; KSARS_LIGHTING_PROBE=0 disables.
     internal static partial class RelativisticSpaceRenderer
     {
         private static MethodInfo? s_nativeDescriptorSet;

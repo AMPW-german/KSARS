@@ -336,6 +336,7 @@ namespace KSARS.Visuals.Tests
             Assert.DoesNotContain(refs, r => r.Name == "WorldRotation" || r.Name == "LocalRotation");
         }
 
+#if DEBUG
         [Fact]
         public void AxisDiagnostic_WiredAtBothRecordBoundaries()
         {
@@ -350,5 +351,6 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(CallsOf(prepare),
                 c => c.Name == "UpdateAxisDiagnostic");
         }
+#endif
     }
 }

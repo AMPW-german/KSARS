@@ -178,14 +178,18 @@ namespace KSARS.Visuals.Tests
         public void ProbeGui_ExposesBetaOverrideControls()
         {
             using var assembly = AssemblyDefinition.ReadAssembly(ModAssemblyPath);
-            var gui = TypeOf(assembly.MainModule, "KSARS.Visuals.RelativisticSpaceRenderer")
-                .Methods.Single(m => m.Name == "DrawProbeGui");
-            var calls = CallsOf(gui);
+            var type = TypeOf(assembly.MainModule, "KSARS.Visuals.RelativisticSpaceRenderer");
+            var overrideControls = type.Methods.Single(m => m.Name == "DrawSpeedOverrideControls");
+            var calls = CallsOf(overrideControls);
 
             Assert.True(CountCalls(calls, "Brutal.ImGuiApi.ImGui", "SliderFloat") >= 1);
             Assert.True(CountCalls(calls, "Brutal.ImGuiApi.ImGui", "InputDouble") >= 1);
-            Assert.True(CountCalls(calls, "Brutal.ImGuiApi.ImGui", "InputInt") >= 1);
             Assert.True(CountCalls(calls, "Brutal.ImGuiApi.ImGui", "Checkbox") >= 1);
+
+#if DEBUG
+            var gui = type.Methods.Single(m => m.Name == "DrawProbeGui");
+            Assert.True(CountCalls(CallsOf(gui), "Brutal.ImGuiApi.ImGui", "InputInt") >= 1);
+#endif
         }
 
         [Fact]
