@@ -7,10 +7,10 @@ namespace KSARS.Visuals
 {
     internal static class RenderCompatibility
     {
-        internal const string SupportedFileVersion = "2026.10.7.5541";
-        internal const string SupportedProductVersion = "2026.10.7.5541+2804b437e2241b7e48194add88b4553f50aff5e1";
-        internal const string SupportedSha256 = "5E47D0374D82A409A08B8F134E57B38AF7F64E19D2EA9B54A17CADFCE90305DF";
-        internal const string SupportedCoreRendererSha256 = "D45CBAC3EAC00B614A36654C43557328C5BB9B4FFC4BEC1DF9AD76F12B7BE5E8";
+        internal const string SupportedFileVersion = "2026.10.19.5638";
+        internal const string SupportedProductVersion = "2026.10.19.5638+0336992a43d6a74f798ae1ef95981d83c1de6373";
+        internal const string SupportedSha256 = "98ECBE7D74B0243EEDE28077AD5E26C135723D854269AD89A3725C488C18C7CB";
+        internal const string SupportedCoreRendererSha256 = "5013C45370A2952E675F1BF19CF8A4512EA972DF40B604DEBEAAD4FFA468F24D";
 
         private static readonly (string Type, string Name)[] SourceBoundaryCalls =
         {

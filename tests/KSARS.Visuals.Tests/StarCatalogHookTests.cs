@@ -35,20 +35,20 @@ namespace KSARS.Visuals.Tests
 
         private static readonly string[] CapturePathMethods =
         {
-            "CaptureAddInstance", "LoadStarBinariesPrefix", "LoadStarBinariesFinalizer",
+            "CaptureAddStar", "LoadStarBinariesPrefix", "LoadStarBinariesFinalizer",
         };
 
         [Fact]
         public void Wrapper_InvokesNativeSubmissionExactlyOnceBeforeAnyCaptureWork()
         {
             using var assembly = LoadModAssembly();
-            var wrapper = SingleMethod(HooksType(assembly.MainModule), "CaptureAddInstance");
+            var wrapper = SingleMethod(HooksType(assembly.MainModule), "CaptureAddStar");
 
             Assert.Equal(
                 new[]
                 {
-                    "System.Object", "KSA.IViewport", "Brutal.Numerics.float3",
-                    "System.Byte", "Brutal.Numerics.byte4", "System.Single",
+                    "System.Object", "Brutal.Numerics.float3", "System.Single",
+                    "System.Byte", "Brutal.Numerics.byte4",
                 },
                 wrapper.Parameters.Select(p => p.ParameterType.FullName).ToArray());
 
@@ -58,7 +58,7 @@ namespace KSARS.Visuals.Tests
                 .Where(x => x.instruction.OpCode == OpCodes.Callvirt
                     && x.instruction.Operand is MethodReference mr
                     && mr.Name == "Invoke"
-                    && mr.DeclaringType.FullName.StartsWith("System.Action`6", StringComparison.Ordinal))
+                    && mr.DeclaringType.FullName.StartsWith("System.Action`5", StringComparison.Ordinal))
                 .Select(x => x.index)
                 .ToList();
             var invokeIndex = Assert.Single(invokeCalls);
@@ -68,10 +68,7 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(calls, c => c.Index > invokeIndex
                 && c.Reference.DeclaringType.FullName == "KSARS.Visuals.StarCatalog"
                 && c.Reference.Name == "get_Current");
-            Assert.Contains(calls, c => c.Index > invokeIndex
-                && c.Reference.DeclaringType.FullName == "KSA.Program"
-                && c.Reference.Name == "get_MainViewport");
-            Assert.DoesNotContain(calls, c => c.Reference.Name == "AddInstance");
+            Assert.DoesNotContain(calls, c => c.Reference.Name == "AddStar");
         }
 
         [Fact]
@@ -318,31 +315,28 @@ namespace KSARS.Visuals.Tests
 
             var technique = techniqueParameter.ParameterType.Resolve();
             Assert.NotNull(technique);
-            var addInstance = technique.Methods.Single(m => m.Name == "AddInstance");
-            Assert.False(addInstance.IsStatic);
-            Assert.Equal("System.Void", addInstance.ReturnType.FullName);
+            var addStar = technique.Methods.Single(m => m.Name == "AddStar");
+            Assert.False(addStar.IsStatic);
+            Assert.Equal("System.Void", addStar.ReturnType.FullName);
             Assert.Equal(
                 new[]
                 {
-                    "KSA.IViewport", "Brutal.Numerics.float3",
-                    "System.Byte", "Brutal.Numerics.byte4", "System.Single",
+                    "Brutal.Numerics.float3", "System.Single",
+                    "System.Byte", "Brutal.Numerics.byte4",
                 },
-                addInstance.Parameters.Select(p => p.ParameterType.FullName).ToArray());
+                addStar.Parameters.Select(p => p.ParameterType.FullName).ToArray());
 
             var calls = CallsOf(loader);
             Assert.Equal(1, calls.Count(c =>
-                c.Reference.Name == "AddInstance"
+                c.Reference.Name == "AddStar"
                 && c.Reference.DeclaringType.FullName == techniqueParameter.ParameterType.FullName));
-            Assert.True(calls.Count(c =>
-                c.Reference.DeclaringType.FullName == "KSA.Program"
-                && c.Reference.Name == "get_MainViewport") >= 1);
         }
 
         [RendererBaselineFact]
         public void InstalledByte4_IsFourSequentialByteFields()
         {
             string numericsPath = Path.Combine(
-                Path.GetDirectoryName(BaselineContext.KsaAssemblyPath)!, "Brutal.Core.Numerics.dll");
+                Path.GetDirectoryName(BaselineContext.KsaAssemblyPath)!, "Brutal.Numerics.dll");
             using var assembly = AssemblyDefinition.ReadAssembly(numericsPath);
             var byte4 = assembly.MainModule.GetType("Brutal.Numerics.byte4");
             Assert.NotNull(byte4);

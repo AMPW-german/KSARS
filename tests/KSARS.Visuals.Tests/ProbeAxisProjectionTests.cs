@@ -314,7 +314,7 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(calls, c => c.DeclaringType == "KSA.Program" && c.Name == "get_ControlledVehicle");
             Assert.Contains(calls, c => c.DeclaringType == "KSA.Vehicle" && c.Name == "get_NavBallMarkerData");
             Assert.Contains(calls, c => c.DeclaringType == "KSA.Vehicle" && c.Name == "get_NavBallData");
-            Assert.Contains(calls, c => c.Name == "GetCci2Cce");
+            Assert.Contains(calls, c => c.Name == "GetHelm2Cce");
             Assert.Contains(calls, c => c.Name == "ToPlayerString");
             Assert.Contains(calls, c => c.Name == "Transform");
             Assert.True(calls.Count(c => c.Name == "Transform") >= 2,
@@ -330,7 +330,7 @@ namespace KSARS.Visuals.Tests
 
             Assert.Contains(refs, r => r.DeclaringType == "KSA.UboCameraData" && r.Name == "View");
             Assert.Contains(refs, r => r.DeclaringType == "KSA.UboCameraData" && r.Name == "ViewProjection");
-            Assert.Contains(refs, r => r.DeclaringType == "KSA.NavBallMarkerData" && r.Name == "VelocityDirCci");
+            Assert.Contains(refs, r => r.DeclaringType == "KSA.NavBallMarkerData" && r.Name == "VelocityDirHelm");
             Assert.Contains(refs, r => r.DeclaringType == "KSA.NavBallMarkerData" && r.Name == "VelocityValid");
             Assert.Contains(refs, r => r.DeclaringType == "KSA.NavBallData" && r.Name == "Frame");
             Assert.DoesNotContain(refs, r => r.Name == "WorldRotation" || r.Name == "LocalRotation");

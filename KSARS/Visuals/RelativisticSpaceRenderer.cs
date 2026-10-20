@@ -2246,8 +2246,8 @@ namespace KSARS.Visuals
                 }
                 else
                 {
-                    double3 markerEcl = controlled.NavBallMarkerData.VelocityDirCci
-                        .Transform(controlled.Parent.GetCci2Cce());
+                    double3 markerEcl = controlled.NavBallMarkerData.VelocityDirHelm
+                        .Transform(controlled.GetHelm2Cce());
                     navball = ProbeAxisProjection.TryAngleDegrees(direction,
                             new OpticalVector(markerEcl.X, markerEcl.Y, markerEcl.Z), out double angle)
                         ? $"navball parent-relative marker frame={frame} controlledParent={parentId} markerVsObserver={angle:F2}deg"

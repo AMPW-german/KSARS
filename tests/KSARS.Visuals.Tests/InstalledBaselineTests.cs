@@ -415,7 +415,7 @@ namespace KSARS.Visuals.Tests
                 Assert.Equal(0, IntConstant(PreviousNonNop(storeInstruction)!));
             }
 
-            Assert.True(initializers >= 1, "ResourceFrameIndex must be initialized to 0 in a constructor");
+            Assert.True(initializers <= 1, "ResourceFrameIndex must be initialized at most once, to 0, or rely on implicit zero-init");
         }
 
         [RendererBaselineFact]

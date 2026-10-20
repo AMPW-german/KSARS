@@ -9,16 +9,16 @@ using KSA;
 namespace KSARS.Visuals
 {
     // Read-only capture seam for KSA.Mod::LoadStarBinaries. The single
-    // native InstancedStarTechnique::AddInstance call is routed through a static
+    // native InstancedStarTechnique::AddStar call is routed through a static
     // wrapper that always invokes the native method exactly once first, then
     // records the raw record into StarCatalog. Native draws, file reads, and
     // exceptions are never altered, suppressed, or swallowed.
     internal static class StarCatalogHooks
     {
         private static MethodBase? s_loader;
-        private static MethodInfo? s_addInstance;
+        private static MethodInfo? s_addStar;
         private static MethodInfo? s_wrapper;
-        private static Action<object, IViewport, float3, byte, byte4, float>? s_nativeAddInstance;
+        private static Action<object, float3, float, byte, byte4>? s_nativeAddStar;
         private static ThermalSpectrumTable? s_table;
         private static StarSpectralCache? s_cache;
         private static bool s_installed;
@@ -74,8 +74,8 @@ namespace KSARS.Visuals
             MethodBase? loader = null;
             try
             {
-                (loader, MethodInfo addInstance) = ResolveTargets();
-                PrepareCapture(addInstance);
+                (loader, MethodInfo addStar) = ResolveTargets();
+                PrepareCapture(addStar);
                 var cache = new StarSpectralCache(table);
 
                 MethodInfo prefix = typeof(StarCatalogHooks).GetMethod(
@@ -119,9 +119,9 @@ namespace KSARS.Visuals
                 if (!unpatchFailed)
                 {
                     s_loader = null;
-                    s_addInstance = null;
+                    s_addStar = null;
                     s_wrapper = null;
-                    s_nativeAddInstance = null;
+                    s_nativeAddStar = null;
                     s_table = null;
                     s_cache = null;
                     s_installed = false;
@@ -134,7 +134,7 @@ namespace KSARS.Visuals
             }
         }
 
-        private static (MethodBase Loader, MethodInfo AddInstance) ResolveTargets()
+        private static (MethodBase Loader, MethodInfo AddStar) ResolveTargets()
         {
             MethodInfo? loader = typeof(Mod).GetMethod("LoadStarBinaries",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -149,16 +149,6 @@ namespace KSARS.Visuals
                     "star catalog unsupported: KSA.Mod::LoadStarBinaries(InstancedStarTechnique) signature changed");
             }
 
-            MethodInfo? mainViewportGetter = typeof(Program)
-                .GetProperty("MainViewport", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-                ?.GetGetMethod(nonPublic: true);
-            if (mainViewportGetter is null
-                || !typeof(IViewport).IsAssignableFrom(mainViewportGetter.ReturnType))
-            {
-                throw new InvalidOperationException(
-                    "star catalog unsupported: KSA.Program::get_MainViewport missing or mismatched");
-            }
-
             List<CodeInstruction> original;
             try
             {
@@ -171,72 +161,64 @@ namespace KSARS.Visuals
             }
 
             int addCount = 0;
-            int viewportCount = 0;
-            MethodInfo? addInstance = null;
+            MethodInfo? addStar = null;
             foreach (CodeInstruction instruction in original)
             {
                 if ((instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt)
-                    && instruction.operand is MethodInfo method)
+                    && instruction.operand is MethodInfo method
+                    && method.Name == "AddStar" && method.DeclaringType is { } declaring
+                    && (declaring.IsAssignableFrom(techniqueType) || techniqueType.IsAssignableFrom(declaring)))
                 {
-                    if (method.Equals(mainViewportGetter))
-                    {
-                        viewportCount++;
-                    }
-                    else if (method.Name == "AddInstance" && method.DeclaringType is { } declaring
-                        && (declaring.IsAssignableFrom(techniqueType) || techniqueType.IsAssignableFrom(declaring)))
-                    {
-                        addCount++;
-                        addInstance = method;
-                    }
+                    addCount++;
+                    addStar = method;
                 }
             }
 
-            if (addCount != 1 || viewportCount < 1 || addInstance is null)
+            if (addCount != 1 || addStar is null)
             {
                 throw new InvalidOperationException(
-                    $"star catalog unsupported: LoadStarBinaries anchors changed (AddInstance={addCount}, get_MainViewport={viewportCount})");
+                    $"star catalog unsupported: LoadStarBinaries anchors changed (AddStar={addCount})");
             }
 
-            if (addInstance.ReturnType != typeof(void)
-                || !ParametersAre(addInstance,
-                    typeof(IViewport), typeof(float3), typeof(byte), typeof(byte4), typeof(float)))
+            if (addStar.ReturnType != typeof(void)
+                || !ParametersAre(addStar,
+                    typeof(float3), typeof(float), typeof(byte), typeof(byte4)))
             {
                 throw new InvalidOperationException(
-                    $"star catalog unsupported: {addInstance.DeclaringType?.FullName}::AddInstance signature {DescribeSignature(addInstance)} changed");
+                    $"star catalog unsupported: {addStar.DeclaringType?.FullName}::AddStar signature {DescribeSignature(addStar)} changed");
             }
 
-            return (loader, addInstance);
+            return (loader, addStar);
         }
 
         private static string DescribeSignature(MethodInfo method) =>
             $"{method.ReturnType.Name} {method.Name}({string.Join(", ", method.GetParameters().Select(p => p.ParameterType.Name))})";
 
-        private static void PrepareCapture(MethodInfo addInstance)
+        private static void PrepareCapture(MethodInfo addStar)
         {
             MethodInfo? wrapper = typeof(StarCatalogHooks).GetMethod(
-                nameof(CaptureAddInstance), BindingFlags.NonPublic | BindingFlags.Static);
+                nameof(CaptureAddStar), BindingFlags.NonPublic | BindingFlags.Static);
             if (wrapper is null || wrapper.ReturnType != typeof(void)
                 || !ParametersAre(wrapper,
-                    typeof(object), typeof(IViewport), typeof(float3), typeof(byte), typeof(byte4), typeof(float)))
+                    typeof(object), typeof(float3), typeof(float), typeof(byte), typeof(byte4)))
             {
                 throw new InvalidOperationException("star catalog unsupported: capture wrapper missing or mismatched");
             }
 
             var technique = Expression.Parameter(typeof(object), "technique");
-            var viewport = Expression.Parameter(typeof(IViewport), "viewport");
             var direction = Expression.Parameter(typeof(float3), "direction");
+            var inverseParsecs = Expression.Parameter(typeof(float), "inverseParsecs");
             var scale = Expression.Parameter(typeof(byte), "scale");
             var color = Expression.Parameter(typeof(byte4), "color");
-            var distance = Expression.Parameter(typeof(float), "distance");
             Expression nativeCall = Expression.Call(
-                Expression.Convert(technique, addInstance.DeclaringType!),
-                addInstance, viewport, direction, scale, color, distance);
-            s_nativeAddInstance = Expression
-                .Lambda<Action<object, IViewport, float3, byte, byte4, float>>(
-                    nativeCall, technique, viewport, direction, scale, color, distance)
+                Expression.Convert(technique, addStar.DeclaringType!),
+                addStar, direction, inverseParsecs, scale, color);
+            s_nativeAddStar = Expression
+                .Lambda<Action<object, float3, float, byte, byte4>>(
+                    nativeCall, technique, direction, inverseParsecs, scale, color)
                 .Compile();
 
-            s_addInstance = addInstance;
+            s_addStar = addStar;
             s_wrapper = wrapper;
         }
 
@@ -291,18 +273,17 @@ namespace KSARS.Visuals
         // Replaces the single native callvirt; the original receiver and argument
         // stack are unchanged. The native submission always happens first and
         // exactly once; only its success is observed for capture.
-        private static void CaptureAddInstance(object technique, IViewport viewport,
-            float3 direction, byte scale, byte4 color, float distance)
+        private static void CaptureAddStar(object technique, float3 direction,
+            float inverseParsecs, byte scale, byte4 color)
         {
-            s_nativeAddInstance!(technique, viewport, direction, scale, color, distance);
+            s_nativeAddStar!(technique, direction, inverseParsecs, scale, color);
 
             StarCatalog.CaptureScope? scope = null;
             try
             {
                 scope = StarCatalog.Current;
                 if (scope is null
-                    || !ReferenceEquals(scope.Technique, technique)
-                    || !ReferenceEquals(viewport, Program.MainViewport))
+                    || !ReferenceEquals(scope.Technique, technique))
                 {
                     return;
                 }
@@ -323,7 +304,7 @@ namespace KSARS.Visuals
 
         internal static IEnumerable<CodeInstruction> TranspileLoadStarBinaries(IEnumerable<CodeInstruction> instructions)
         {
-            if (s_addInstance is null || s_wrapper is null)
+            if (s_addStar is null || s_wrapper is null)
             {
                 throw new InvalidOperationException("star catalog transpiler invoked before capture preparation");
             }
@@ -334,7 +315,7 @@ namespace KSARS.Visuals
             for (int i = 0; i < list.Count; i++)
             {
                 if ((list[i].opcode == OpCodes.Call || list[i].opcode == OpCodes.Callvirt)
-                    && list[i].operand is MethodInfo method && method.Equals(s_addInstance))
+                    && list[i].operand is MethodInfo method && method.Equals(s_addStar))
                 {
                     count++;
                     index = i;
@@ -344,7 +325,7 @@ namespace KSARS.Visuals
             if (count != 1)
             {
                 throw new InvalidOperationException(
-                    $"star catalog unsupported: LoadStarBinaries AddInstance anchor count {count}");
+                    $"star catalog unsupported: LoadStarBinaries AddStar anchor count {count}");
             }
 
             var replacement = new CodeInstruction(OpCodes.Call, s_wrapper);
@@ -357,9 +338,9 @@ namespace KSARS.Visuals
         internal static void ResetState()
         {
             s_loader = null;
-            s_addInstance = null;
+            s_addStar = null;
             s_wrapper = null;
-            s_nativeAddInstance = null;
+            s_nativeAddStar = null;
             s_table = null;
             s_cache = null;
             s_installed = false;
