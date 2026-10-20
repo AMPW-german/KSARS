@@ -53,6 +53,11 @@ namespace KSARS.Visuals
             layout(std140, set = 1, binding = 0) uniform AtlasBodies { AtlasBody bodies[3]; } atlas;
             layout(set = 1, binding = 1) uniform sampler2D colorTiles[3];
             layout(set = 1, binding = 2) uniform sampler2D depthTiles[3];
+            layout(std430, set = 1, binding = 3) readonly buffer KsarsThermal
+            {
+                vec4 samples[1024];
+                vec4 hot[3];
+            } ksarsThermal;
 
             layout(push_constant) uniform MainParams
             {
@@ -62,6 +67,62 @@ namespace KSARS.Visuals
 
             layout(location = 0) in vec2 inUv;
             layout(location = 0) out vec4 outColor;
+
+            // Sunlit bodies and the solar disc share the ~5800 K solar-spectrum
+            // prior; D^3 keeps the intensity term while this applies the
+            // hue-only part of the Doppler shift to the composited radiance.
+            const float KSARS_BODY_TEFF = 5800.0;
+
+            vec4 ksarsSpectrum(float temperature)
+            {
+                if (temperature > 1e8)
+                {
+                    float r = 1e8 / temperature;
+                    vec3 xyz = vec3(
+                        ksarsThermal.hot[0].x + r * (ksarsThermal.hot[0].y + r * ksarsThermal.hot[0].z),
+                        ksarsThermal.hot[1].x + r * (ksarsThermal.hot[1].y + r * ksarsThermal.hot[1].z),
+                        ksarsThermal.hot[2].x + r * (ksarsThermal.hot[2].y + r * ksarsThermal.hot[2].z));
+                    return vec4(xyz / (xyz.x + xyz.y + xyz.z), log(xyz.y) + log(temperature) - 18.420680744);
+                }
+
+                float p = clamp(log(temperature) * (1023.0 / 18.420680744), 0.0, 1023.0);
+                int i = min(int(floor(p)), 1022);
+                return mix(ksarsThermal.samples[i], ksarsThermal.samples[i + 1],
+                    clamp(p - float(i), 0.0, 1.0));
+            }
+
+            vec3 ksarsBodyShift(vec3 rgb, float doppler)
+            {
+                if (doppler == 1.0)
+                {
+                    return rgb;
+                }
+
+                vec4 restS = ksarsSpectrum(KSARS_BODY_TEFF);
+                vec4 shiftS = ksarsSpectrum(KSARS_BODY_TEFF * doppler);
+                if (!(restS.y > 0.0) || !(shiftS.y > 0.0))
+                {
+                    return rgb;
+                }
+
+                vec3 m = shiftS.xyz / restS.xyz;
+                float ml = dot(m, vec3(0.212639006, 0.715168679, 0.072192315));
+                if (!(ml > 0.0))
+                {
+                    return rgb;
+                }
+
+                m /= ml;
+                vec3 xyz = vec3(
+                    dot(rgb, vec3(0.412390799, 0.357584339, 0.180480788)),
+                    dot(rgb, vec3(0.212639006, 0.715168679, 0.072192315)),
+                    dot(rgb, vec3(0.019330819, 0.119194780, 0.950532152)));
+                xyz *= m;
+                return max(vec3(
+                    dot(vec3(3.240969942, -1.537383178, -0.498610760), xyz),
+                    dot(vec3(-0.969243636, 1.875967502, 0.041555057), xyz),
+                    dot(vec3(0.055630080, -0.203976959, 1.056971514), xyz)), vec3(0.0));
+            }
 
             void main()
             {
@@ -172,6 +233,8 @@ namespace KSARS.Visuals
                     discard;
                 }
 
+                rgb = ksarsBodyShift(rgb, doppler);
+
                 float scale = doppler * doppler * doppler;
                 rgb *= scale;
                 if (any(isnan(rgb)))
@@ -193,6 +256,7 @@ namespace KSARS.Visuals
         private DescriptorPoolEx? _pool;
         private VkDescriptorSet _set;
         private BufferEx _bodyBuffer;
+        private BufferEx _thermalBuffer;
         private VkShaderModule _vertexModule;
         private VkShaderModule _fragmentModule;
         private VkPipelineLayout _pipelineLayout;
@@ -226,10 +290,27 @@ namespace KSARS.Visuals
                     AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
                 });
 
+                _thermalBuffer = BufferExExtensions.CreateBuffer(renderer.Allocator, new BufferEx.CreateInfo
+                {
+                    Name = "KSARS_AtlasMain_Thermal",
+                    BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+                    BufferSize = ByteSize.Of<float4>() * ThermalSpectrumTable.GpuRows,
+                    AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+                });
+                MappedMemory thermalMemory = _thermalBuffer.Map();
+                try
+                {
+                    ThermalSpectrumTable.LoadEmbedded().WriteGpuTable(thermalMemory.AsSpan<float4>());
+                }
+                finally
+                {
+                    thermalMemory.Unmap();
+                }
+
                 _vertexModule = CompileModule(AtlasCompositeProbe.VertexSource, ShaderKind.GlslVertexShader, "AtlasMain.vert");
                 _fragmentModule = CompileModule(FragmentSource, ShaderKind.GlslFragmentShader, "AtlasMain.frag");
 
-                var bindings = new VkDescriptorSetLayoutBinding[3]
+                var bindings = new VkDescriptorSetLayoutBinding[4]
                 {
                     new()
                     {
@@ -252,6 +333,13 @@ namespace KSARS.Visuals
                         DescriptorType = VkDescriptorType.CombinedImageSampler,
                         StageFlags = VkShaderStageFlags.FragmentBit,
                     },
+                    new()
+                    {
+                        Binding = 3,
+                        DescriptorCount = 1,
+                        DescriptorType = VkDescriptorType.StorageBuffer,
+                        StageFlags = VkShaderStageFlags.FragmentBit,
+                    },
                 };
                 var layoutInfo = new DescriptorSetLayoutEx.CreateInfo { Bindings = bindings };
                 _setLayout = _renderer.Device.CreateDescriptorSetLayout(layoutInfo, null);
@@ -264,6 +352,7 @@ namespace KSARS.Visuals
                         {
                             new() { Type = VkDescriptorType.UniformBuffer, DescriptorCount = 1 },
                             new() { Type = VkDescriptorType.CombinedImageSampler, DescriptorCount = 2 * MaxSources },
+                            new() { Type = VkDescriptorType.StorageBuffer, DescriptorCount = 1 },
                         },
                     },
                     null);
@@ -276,6 +365,14 @@ namespace KSARS.Visuals
                     Range = ByteSize.Of<AtlasBodyGpu>() * MaxSources,
                 };
                 WriteBufferDescriptor(_set, 0, VkDescriptorType.UniformBuffer, in bodyInfo);
+
+                var thermalInfo = new VkDescriptorBufferInfo
+                {
+                    Buffer = _thermalBuffer.VkBuffer,
+                    Offset = ByteSize.Zero,
+                    Range = ByteSize.Of<float4>() * ThermalSpectrumTable.GpuRows,
+                };
+                WriteBufferDescriptor(_set, 3, VkDescriptorType.StorageBuffer, in thermalInfo);
 
                 var pushRange = new VkPushConstantRange
                 {
@@ -620,6 +717,18 @@ namespace KSARS.Visuals
                 if (!_bodyBuffer.IsNull())
                 {
                     _bodyBuffer.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                (errors ??= new List<Exception>()).Add(ex);
+            }
+
+            try
+            {
+                if (!_thermalBuffer.IsNull())
+                {
+                    _thermalBuffer.Dispose();
                 }
             }
             catch (Exception ex)

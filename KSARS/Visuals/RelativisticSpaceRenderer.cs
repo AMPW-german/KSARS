@@ -957,7 +957,7 @@ namespace KSARS.Visuals
         private static string MainViewState => s_mainProbeEnabled
             ? (s_mainFailed
                 ? "main view stock (main probe failed)"
-                : "main view override armed: atlas main probe, <=2 resolved bodies, resolved captures require native >6px; observed <=6px bodies omitted (nonphysical visibility simplification), D^3 + finite HDR clamp 65504, GPU ordering + VVL verified, no radiance calibration claim")
+                : "main view override armed: atlas main probe, <=2 resolved bodies, resolved captures require native >6px; observed <=6px bodies omitted (nonphysical visibility simplification), D^3 + 5800K chroma shift + finite HDR clamp 65504, GPU ordering + VVL verified, no radiance calibration claim")
             : "main view stock";
 
         internal static string GetStatus()
@@ -2674,8 +2674,8 @@ namespace KSARS.Visuals
             }
 
             s_mainStatus = s_betaOverrideEnabled
-                ? $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + finite HDR clamp 65504; ordering + VVL verified; no radiance calibration claim; OBSERVER OVERRIDE beta={s_betaOverride:G12})"
-                : $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + finite HDR clamp 65504; ordering + VVL verified; no radiance calibration claim)";
+                ? $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + 5800K chroma shift + finite HDR clamp 65504; ordering + VVL verified; no radiance calibration claim; OBSERVER OVERRIDE beta={s_betaOverride:G12})"
+                : $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + 5800K chroma shift + finite HDR clamp 65504; ordering + VVL verified; no radiance calibration claim)";
         }
 
         private static void RenderNativeSphereOrAtlas(StaticCelestial body, IViewport viewport,
