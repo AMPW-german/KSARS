@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Security.Cryptography;
@@ -957,7 +957,7 @@ namespace KSARS.Visuals
         private static string MainViewState => s_mainProbeEnabled
             ? (s_mainFailed
                 ? "main view stock (main probe failed)"
-                : "main view override armed: atlas main probe, <=2 resolved bodies, resolved captures require native >6px; observed <=6px bodies omitted (nonphysical visibility simplification), D^3 + finite HDR clamp 65504, GPU ordering unverified, not a production renderer")
+                : "main view override armed: atlas main probe, <=2 resolved bodies, resolved captures require native >6px; observed <=6px bodies omitted (nonphysical visibility simplification), D^3 + finite HDR clamp 65504, GPU ordering + VVL verified, no radiance calibration claim")
             : "main view stock";
 
         internal static string GetStatus()
@@ -2586,7 +2586,7 @@ namespace KSARS.Visuals
             string omittedNote = frame.OmittedBodies.Count > 0
                 ? $"; {frame.OmittedBodies.Count} tiny source(s) omitted (observed <=6px; nonphysical visibility simplification), native sphere suppressed"
                 : "";
-            s_mainStatus = $"main probe prepared {count}/{AtlasMainPass.MaxBodies} resolved source(s){(frame.Solar.Prepared ? "+1 solar" : "")} on syncSlot={slotIndex} resourceFrame={resourceIndex} ({limited} below native rest >6px threshold unsupported; rest<=6px observed>6px stays stock{culledNote}{omittedNote}); diagnostic composite pending, finite HDR clamp 65504; commands only, GPU output unverified";
+            s_mainStatus = $"main probe prepared {count}/{AtlasMainPass.MaxBodies} resolved source(s){(frame.Solar.Prepared ? "+1 solar" : "")} on syncSlot={slotIndex} resourceFrame={resourceIndex} ({limited} below native rest >6px threshold unsupported; rest<=6px observed>6px stays stock{culledNote}{omittedNote}); diagnostic composite pending, finite HDR clamp 65504";
         }
 
         private static void RunNativeDistanceAndComposite(CommandBuffer commandBuffer, IViewport viewport, int frameIndex)
@@ -2674,8 +2674,8 @@ namespace KSARS.Visuals
             }
 
             s_mainStatus = s_betaOverrideEnabled
-                ? $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + finite HDR clamp 65504 diagnostic; GPU depth ordering unverified; not a production renderer; OBSERVER OVERRIDE beta={s_betaOverride:G12})"
-                : $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + finite HDR clamp 65504 diagnostic; GPU depth ordering unverified; not a production renderer)";
+                ? $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + finite HDR clamp 65504; ordering + VVL verified; no radiance calibration claim; OBSERVER OVERRIDE beta={s_betaOverride:G12})"
+                : $"main view override active: composite recorded ({frame.BodyCount}/{AtlasMainPass.MaxBodies} resolved bodies on syncSlot={frame.SyncSlotIndex} resourceFrame={frameIndex}; depth-aware radial composite; D^3 + finite HDR clamp 65504; ordering + VVL verified; no radiance calibration claim)";
         }
 
         private static void RenderNativeSphereOrAtlas(StaticCelestial body, IViewport viewport,

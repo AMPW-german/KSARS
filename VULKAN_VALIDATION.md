@@ -371,3 +371,27 @@ save logged 20:36:01).
 - Caveats: covers the exercised workload only; no mod-side claims beyond the paths run.
 
 Run log: `C:\Users\AMPW\AppData\Local\VulkanValidationLayers\runs\20261020-203127-media\vvl-messages.log`
+
+### Main-probe run — 20261020-210806-mainprobe (2026-10-20)
+
+Same isolated instance relaunched under the layer with all probes plus
+`KSARS_ATLAS_MAIN_PROBE=1` — the first VVL coverage of the atlas main-pass
+composite (`AtlasMainPass`), the solar ownership seam (`SolarFrameToken`,
+deferred native-Sun suppression) and the owned solar glare pass. Workload: LEO +
+Jupiter-orbit scenes, β=0 and high-β observer overrides, window resize, orderly
+menu exit. `CURRENT-VALIDATION-ENABLED` recorded.
+
+Findings — all previously attributed stock, **zero KSARS-named objects** in the log:
+
+- `VUID-vkCmdBlitImage-dstImage-02000` x8 — stock BC4 texture streaming at
+  startup (compressed blit target; no mod blit callsites).
+- `UNASSIGNED-non-acquired-swapchain-image-used` x10 — stock swapchain teardown
+  at shutdown.
+- `WARNING-Shader-OutputNotConsumed` x10 — baseline performance noise, also in
+  the Core-only run.
+- The composite draw (fullscreen pass, premultiplied blend, depth-test-no-write),
+  body tile descriptors, solar coverage/depth adapters and descriptor retargets
+  produced **no validation findings** under sync validation.
+- Caveat: workload-scoped evidence only.
+
+Run log: `C:\Users\AMPW\AppData\Local\VulkanValidationLayers\runs\20261020-210806-mainprobe\vvl-messages.log`
