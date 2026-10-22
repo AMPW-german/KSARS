@@ -57,6 +57,7 @@
 			<HintPath>$(KSAModsDir)StarMap/StarMap.API.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+		<InternalsVisibleTo Include="KSARS.Visuals.Tests" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -64,6 +65,13 @@
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		  <ModManifestArray>assets</ModManifestArray>
 		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="..\tools\SpectralTables\Generated\ThermalTable.v2.bin" LogicalName="KSARS.ThermalTable.v2.bin" />
+		<EmbeddedResource Include="..\tools\SpectralTables\Data\LICENSE-CC-BY-SA-4.0.txt" LogicalName="KSARS.SpectralData.LICENSE.txt" />
+		<EmbeddedResource Include="..\tools\SpectralTables\Data\README.md" LogicalName="KSARS.SpectralData.SOURCE.md" />
+		<EmbeddedResource Include="..\tools\SpectralTables\Generated\README.md" LogicalName="KSARS.SpectralData.TABLES.md" />
 	</ItemGroup>
 
   	<Target Name="SetVersionMetadata" BeforeTargets="GetAssemblyVersion">

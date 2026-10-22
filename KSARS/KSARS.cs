@@ -10,7 +10,7 @@ namespace KSARS
     [HarmonyPatch]
     public class KSARS
     {
-        private const double SpeedOfLight = 299792458.0;
+        private const double SpeedOfLight = PhysicsConstants.SpeedOfLight;
 
         private readonly struct RelativisticIntegrationState
         {
@@ -37,18 +37,43 @@ namespace KSARS
         {
             Console.WriteLine("Hello World from KSARS!");
             var harmony = new Harmony("KSARS");
-            harmony.PatchAll();
+            harmony.CreateClassProcessor(typeof(KSARS)).Patch();
+        }
+
+        [StarMapBeforeMain]
+        public void BeforeMain()
+        {
+            Visuals.RelativisticVisuals.InspectBaseline(typeof(Program).Assembly);
+        }
+
+        [StarMapUnload]
+        public void Unload()
+        {
+            Visuals.RelativisticVisuals.Shutdown();
         }
 
         [StarMapAfterGui]
         public unsafe void AfterGui(double dt)
         {
-            Vehicle current = Program.ControlledVehicle;
-            if (current == null) return;
-
             ImGui.Begin("KSARS");
-            ImGui.Text($"Current speed: {current.GetVelocityEcl().Length():F2} m/s");
-            ImGui.Text($"Current speed (relativistic): {current.GetVelocityEcl().Length() / SpeedOfLight:F16} c");
+
+            Vehicle? current = Program.ControlledVehicle;
+            if (current != null)
+            {
+                ImGui.Text($"Current speed: {current.GetVelocityEcl().Length():F2} m/s");
+                ImGui.Text($"Current speed (relativistic): {current.GetVelocityEcl().Length() / SpeedOfLight:F16} c");
+            }
+
+#if DEBUG
+            string diagnostics = $"Visuals: {Visuals.RelativisticVisuals.Status}";
+            ImGui.Text(diagnostics);
+            if (ImGui.Button("Copy diagnostics"))
+            {
+                ImGui.SetClipboardText(diagnostics);
+            }
+#endif
+
+            Visuals.RelativisticVisuals.DrawProbeGui();
             ImGui.End();
         }
 

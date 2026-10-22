@@ -61,3 +61,11 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# SpectralTables data/artifacts: never normalize the hashed CIE source bytes
+###############################################################################
+tools/SpectralTables/Data/CIE_xyz_1931_2deg.csv -text
+tools/SpectralTables/Data/CIE_xyz_1931_2deg.csv_metadata.json -text
+tools/SpectralTables/Data/LICENSE-CC-BY-SA-4.0.txt -text
+tools/SpectralTables/Generated/*.bin binary

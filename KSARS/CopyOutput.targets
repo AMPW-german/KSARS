@@ -3,11 +3,11 @@
         <CopyDestination Include="$(MSBuildProjectDirectory)/../Release/$(ModName)/" />
     </ItemGroup>
 
-    <Target Name="CopyBuildOutput" AfterTargets="Build">
+    <Target Name="CopyBuildOutput" AfterTargets="Build" Condition="'$(SkipModPackaging)' != 'true'">
         <MSBuild Projects="$(MSBuildProjectFile)" Targets="_CopyToSingleDestination" Properties="SingleCopyDestination=%(CopyDestination.Identity)" />
     </Target>
 
-    <Target Name="_CopyToSingleDestination">
+    <Target Name="_CopyToSingleDestination" Condition="'$(SkipModPackaging)' != 'true'">
         <Message Text="Refreshing $(SingleCopyDestination)" Importance="high" />
 
         <!-- Collect files here -->

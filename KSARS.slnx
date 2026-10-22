@@ -3,4 +3,6 @@
     <File Path=".github/copilot-instructions.md" />
   </Folder>
   <Project Path="KSARS/KSARS.csproj" />
+  <Project Path="tests/KSARS.Visuals.Tests/KSARS.Visuals.Tests.csproj" />
+  <Project Path="tools/SpectralTables/SpectralTables.csproj" />
 </Solution>
