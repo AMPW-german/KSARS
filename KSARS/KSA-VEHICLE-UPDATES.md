@@ -191,12 +191,20 @@ parallel:      1 / gamma^3
 perpendicular: 1 / gamma
 ```
 
-The corrected ECL change is transformed back to CCI. The resulting CCI position and velocity are then written back to either a CCI or rotating CCF physics bubble. Position is reconciled with a trapezoidal half-step correction based on the difference between the Newtonian and relativistic velocity changes. Delta-velocity and linear-acceleration measurements are scaled using the same ECL velocity.
+The Newtonian ECL change used for the scaling is the *total* change in the vehicle's ecliptic velocity: the integrator's own physics-frame velocity delta rotated into ecliptic axes, plus the bubble origin's conic velocity drift over the step (`nextOrigin.VelocityBub` minus `Origin.VelocityBub` — the bubble origin rides the leader's Keplerian conic), plus the parent's ecliptic velocity drift over the step (`GetVelocityEcl` at `nextOrigin.Time` minus at `Origin.Time`). The drift terms matter on long timewarp steps: the integrator integrates only the physics-frame residual, while the game later re-anchors the result against `nextOrigin` and the end-of-step parent velocity. Anchoring against the start-of-step values lets both drift terms slip in unscaled and unbounded, which can add speed even during a retrograde burn near a gravitating body.
+
+The corrected ECL change is transformed back to CCI. The resulting CCI position and velocity are then written back to either a CCI or rotating CCF physics bubble, re-anchored against `nextOrigin` (position and velocity) and the end-of-step parent velocity so the game's own `vCci = nextOrigin.VelocityBub + VelocityPhys` and `vEcl = parentEcl + vCce` recomputation reproduces the corrected values exactly. Position is reconciled with a trapezoidal half-step correction based on the difference between the Newtonian and relativistic velocity changes. Delta-velocity and linear-acceleration measurements are scaled using the same ECL velocity.
 
 The final ECL velocity is constrained to the greatest representable `double` below `299,792,458 m/s`. KSA's existing local-physics velocity clamp remains in place as an additional safeguard.
 
-This patch affects the unconstrained maneuvering path that calls `IntegrateVelocityVerlet`. Contact and constraint simulation is performed through 
-and does not call this integrator, so constrained vehicles do not yet receive the same relativistic transformation.
+The same patch is applied to both unconstrained integrators:
+
+- `IntegrateVelocityVerlet` — used for sub-steps up to two seconds and whenever long steps are not permitted.
+- `IntegrateRk8` — used for maneuvering vehicles in a CCI bubble once the sub-step exceeds two seconds, which is what high timewarp produces. Without this hook a burning ship at high warp keeps full Newtonian acceleration and is only stopped by the physics-frame speed clamp, which still permits ecliptic speeds at or above light speed.
+
+For large step delta velocities the parallel/perpendicular scaling is applied in subdivisions (pieces of at most 0.005 c, capped at 2048), re-evaluating gamma against the running velocity. This makes a single long step asymptote toward light speed the way continuous relativistic dynamics does, rather than being scaled once by the start-of-step gamma.
+
+Contact and constraint simulation is performed through a separate path and does not call these integrators, so constrained vehicles do not yet receive the same relativistic transformation. On-rails freefall propagation (`ApplyFreefallMotion`) is also unmodified.
 
 ## Summary
 
