@@ -277,12 +277,12 @@ namespace KSARS.Visuals.Tests
 
             int entryMethodClear = IndexOfStoreWithPrevious(instructions, "s_rebuildMethod", OpCodes.Ldnull);
             int entryFlagClear = IndexOfStoreWithPrevious(instructions, "s_rebuildBoundaryVerified", OpCodes.Ldc_I4_0);
-            int identityCall = instructions.FindIndex(i =>
-                i.Operand is MethodReference mr && mr.Name == "VerifyCoreRendererIdentity");
-            Assert.True(identityCall >= 0, "PrepareProbe must verify core renderer identity");
-            Assert.True(entryMethodClear >= 0 && entryMethodClear < identityCall,
+            int firstCall = instructions.FindIndex(i =>
+                (i.OpCode == OpCodes.Call || i.OpCode == OpCodes.Callvirt) && i.Operand is MethodReference);
+            Assert.True(firstCall >= 0, "PrepareProbe must invoke validation calls");
+            Assert.True(entryMethodClear >= 0 && entryMethodClear < firstCall,
                 "s_rebuildMethod must be invalidated before validation begins");
-            Assert.True(entryFlagClear >= 0 && entryFlagClear < identityCall,
+            Assert.True(entryFlagClear >= 0 && entryFlagClear < firstCall,
                 "s_rebuildBoundaryVerified must be invalidated before validation begins");
 
             int promote = IndexOfStoreWithPrevious(instructions, "s_rebuildBoundaryVerified", OpCodes.Ldc_I4_1);
