@@ -1,17 +1,10 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Reflection;
-using System.Security.Cryptography;
 
 namespace KSARS.Visuals
 {
     internal static class RenderCompatibility
     {
-        internal const string SupportedFileVersion = "2026.10.19.5638";
-        internal const string SupportedProductVersion = "2026.10.19.5638+0336992a43d6a74f798ae1ef95981d83c1de6373";
-        internal const string SupportedSha256 = "98ECBE7D74B0243EEDE28077AD5E26C135723D854269AD89A3725C488C18C7CB";
-        internal const string SupportedCoreRendererSha256 = "5013C45370A2952E675F1BF19CF8A4512EA972DF40B604DEBEAAD4FFA468F24D";
-
         private static readonly (string Type, string Name)[] SourceBoundaryCalls =
         {
             ("KSA.Rendering.RenderImageEx", "ClearDepthImages"),
@@ -337,36 +330,10 @@ namespace KSARS.Visuals
             new("KSA.SunbloomRenderer", "_frameCount", false, T("System.Int32")),
         };
 
-        internal static bool EvaluateIdentity(string? fileVersion, string? productVersion, string? sha256)
-        {
-            return !string.IsNullOrEmpty(fileVersion) && fileVersion == SupportedFileVersion
-                && !string.IsNullOrEmpty(productVersion) && productVersion == SupportedProductVersion
-                && !string.IsNullOrEmpty(sha256) && string.Equals(sha256, SupportedSha256, StringComparison.OrdinalIgnoreCase);
-        }
-
         internal static InspectionResult InspectAssembly(Assembly gameAssembly)
         {
             try
             {
-                string location = gameAssembly.Location;
-                if (string.IsNullOrEmpty(location) || !File.Exists(location))
-                {
-                    return InspectionResult.Failed("game assembly has no readable file location");
-                }
-
-                FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(location);
-                string sha256;
-                using (FileStream stream = File.OpenRead(location))
-                {
-                    sha256 = Convert.ToHexString(SHA256.HashData(stream));
-                }
-
-                if (!EvaluateIdentity(versionInfo.FileVersion, versionInfo.ProductVersion, sha256))
-                {
-                    return InspectionResult.Failed(
-                        $"game binary identity mismatch (fileVersion='{versionInfo.FileVersion}', productVersion='{versionInfo.ProductVersion}', sha256='{sha256}')");
-                }
-
                 var members = new Dictionary<string, MemberInfo>();
                 foreach (MethodSpec spec in RequiredMethods)
                 {

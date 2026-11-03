@@ -10,6 +10,11 @@ namespace KSARS.Visuals.Tests
 {
     public class InstalledBaselineTests
     {
+        private const string ExpectedFileVersion = "2026.10.19.5638";
+        private const string ExpectedProductVersion = "2026.10.19.5638+0336992a43d6a74f798ae1ef95981d83c1de6373";
+        private const string ExpectedKsaSha256 = "98ECBE7D74B0243EEDE28077AD5E26C135723D854269AD89A3725C488C18C7CB";
+        private const string ExpectedCoreRendererSha256 = "5013C45370A2952E675F1BF19CF8A4512EA972DF40B604DEBEAAD4FFA468F24D";
+
         private static List<(string DeclaringType, string Name)> CallsOf(MethodDefinition method) =>
             method.Body.Instructions
                 .Where(i => (i.OpCode == OpCodes.Call || i.OpCode == OpCodes.Callvirt) && i.Operand is MethodReference)
@@ -57,15 +62,15 @@ namespace KSARS.Visuals.Tests
         {
             string path = BaselineContext.KsaAssemblyPath;
             var info = FileVersionInfo.GetVersionInfo(path);
-            Assert.Equal(RenderCompatibility.SupportedFileVersion, info.FileVersion);
-            Assert.Equal(RenderCompatibility.SupportedProductVersion, info.ProductVersion);
+            Assert.Equal(ExpectedFileVersion, info.FileVersion);
+            Assert.Equal(ExpectedProductVersion, info.ProductVersion);
 
             string sha256;
             using (var stream = File.OpenRead(path))
             {
                 sha256 = Convert.ToHexString(SHA256.HashData(stream));
             }
-            Assert.Equal(RenderCompatibility.SupportedSha256, sha256);
+            Assert.Equal(ExpectedKsaSha256, sha256);
         }
 
         [RendererBaselineFact]
@@ -79,7 +84,7 @@ namespace KSARS.Visuals.Tests
             {
                 sha256 = Convert.ToHexString(SHA256.HashData(stream));
             }
-            Assert.Equal(RenderCompatibility.SupportedCoreRendererSha256, sha256);
+            Assert.Equal(ExpectedCoreRendererSha256, sha256);
         }
 
         [RendererBaselineFact]

@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Security.Cryptography;
 using Brutal;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
@@ -105,7 +104,6 @@ namespace KSARS.Visuals
             s_tinyBegin = null;
             s_tinyFilter = null;
             ClearTinyDistanceState();
-            VerifyCoreRendererIdentity();
 
             if (members is null
                 || !members.TryGetValue("KSA.Program::RenderGame", out MemberInfo? member)
@@ -3251,26 +3249,6 @@ namespace KSARS.Visuals
             }
 
             return false;
-        }
-
-        private static void VerifyCoreRendererIdentity()
-        {
-            string location = typeof(Core.Renderer).Assembly.Location;
-            if (string.IsNullOrEmpty(location) || !File.Exists(location))
-            {
-                throw new InvalidOperationException("source probe unsupported: Core.Renderer assembly location unreadable");
-            }
-
-            string sha256;
-            using (FileStream stream = File.OpenRead(location))
-            {
-                sha256 = Convert.ToHexString(SHA256.HashData(stream));
-            }
-
-            if (!string.Equals(sha256, RenderCompatibility.SupportedCoreRendererSha256, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"source probe unsupported: Core.Renderer assembly hash mismatch ({sha256})");
-            }
         }
 
         private static bool ParametersAre(MethodInfo method, params Type[] expected)
