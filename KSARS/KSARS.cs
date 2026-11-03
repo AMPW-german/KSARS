@@ -13,6 +13,12 @@ namespace KSARS
     {
         private const double SpeedOfLight = PhysicsConstants.SpeedOfLight;
 
+#if CINEMATIC
+        private const string PhmPartTemplateId = "KSARS_PHM_Ship";
+        private const string PhmEngineCoreTemplateId = "FusionCore";
+        private static bool _cinematicFreeBurn;
+#endif
+
         // Last-step diagnostics written by the integration postfix and shown in
         // the KSARS window, to distinguish a real integration defect from display
         // or frame noise when watching relativistic burns at high timewarp.
@@ -129,6 +135,14 @@ namespace KSARS
                 }
             }
 
+#if CINEMATIC
+            if (ImGui.Button(_cinematicFreeBurn ? "Cinematic burn: ON" : "Cinematic burn: OFF"))
+            {
+                _cinematicFreeBurn = !_cinematicFreeBurn;
+            }
+            ImGui.Text("Hail Mary engine: no fuel or energy drain while ON.");
+#endif
+
 #if DEBUG
             string diagnostics = $"Visuals: {Visuals.RelativisticVisuals.Status}";
             ImGui.Text(diagnostics);
@@ -145,6 +159,27 @@ namespace KSARS
         // Disable structural failure detection to prevent unrealistic breakage at relativistic speeds
         [HarmonyPatch(typeof(PhysicsBubble), "DetectStructuralFailure"), HarmonyPrefix]
         public static bool VehicleUpdateTask_DetectStructuralFailure_Prefix(VehicleUpdateTask __instance) => false;
+
+#if CINEMATIC
+        // Cinematic mode: the Hail Mary's fusion torch burns without draining propellant.
+        [HarmonyPatch(typeof(PlumbedCore), "ConsumePropellant"), HarmonyPrefix]
+        private static bool PlumbedCore_ConsumePropellant_Prefix(PlumbedCore __instance)
+        {
+            return !(_cinematicFreeBurn
+                && __instance.TemplateId == PhmEngineCoreTemplateId
+                && __instance.Parent?.FullPart?.Template?.Id == PhmPartTemplateId);
+        }
+
+        // Cinematic mode: the Hail Mary's battery is topped back up after every draw.
+        [HarmonyPatch(typeof(Battery), "ConsumeCharge"), HarmonyPostfix]
+        private static void Battery_ConsumeCharge_Postfix(Battery __instance, ref BatteryState state)
+        {
+            if (_cinematicFreeBurn && __instance.TemplateId == PhmPartTemplateId)
+            {
+                state.Charge = __instance.MaximumCapacity;
+            }
+        }
+#endif
 
         [HarmonyPatch(typeof(FlightComputer), "SolveGLoadThrottleCap"), HarmonyPostfix]
         public static void FlightComputer_SolveGLoadThrottleCap_Postfix(ref float __result) => __result = 1.0f; // Disable G-load throttle cap to allow full thrust at relativistic speeds

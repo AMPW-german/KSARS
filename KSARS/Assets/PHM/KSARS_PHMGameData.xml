@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Assets>
+  <!-- Single-part Project Hail Mary ship.
+       KSA part-space frame: +X = nose/flight direction (habitat pod at +X ~85),
+       -X = aft/engine, Y = lateral solar-panel booms (+/-65), Z = up (+/-16).
+       COM ~ (15,0,0). Force on ship = -ExhaustDirection.
+       Controls: pitch = torque about Y (pitch up = -Y), yaw = torque about Z
+       (yaw right = +Z), roll = torque about X (roll right = -X).
+       RCS: 4 thrusters at the nose pod + 4 at the hull aft give pure pitch/yaw
+       couples; 8 thrusters on the solar-panel tips give a pure roll couple;
+       6 dedicated thrusters near COM give clean +/-X/Y/Z translation. -->
+  <PartGameData Id="KSARS_PHM_Ship" DisplayName="Hail Mary">
+    <EditorTag Value="Interstellar" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="32" />
+
+    <Control />
+    <Battery>
+      <MaximumCapacity J="20000" />
+    </Battery>
+
+    <!-- ~105t dry + ~9t tanks/fuel -> ~114t wet; the ~57MN fusion torch yields TWR ~50.
+         Retune Mass Kg if in-game thrust differs. -->
+    <CustomMass>
+      <LocationAsmb X="15" Y="0" Z="0" />
+      <Mass Kg="105000" />
+      <MassSpecificInertia Ixx="400" Iyy="1500" Izz="1500" />
+    </CustomMass>
+
+    <Collider Id="Collider1">
+      <!-- main spine + habitat structure (long axis X) -->
+      <Box Id="HullBox">
+        <LocationAsmb X="25" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="112" />
+        <LengthY M="22" />
+        <LengthZ M="22" />
+      </Box>
+      <!-- aft solar panel array -->
+      <Box Id="PanelsBox">
+        <LocationAsmb X="-17" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="19" />
+        <LengthY M="130" />
+        <LengthZ M="5" />
+      </Box>
+      <!-- habitat pod forward (cylinder axis X) -->
+      <Cylinder Id="PodCollider">
+        <LocationAsmb X="68" Y="1" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="1.5708" />
+        <LengthY M="32" />
+        <Radius M="13" />
+      </Cylinder>
+    </Collider>
+
+    <!-- Fusion drive propellant (H2) -->
+    <Tank Id="MainTank">
+      <CylindricalTank>
+        <Material Id="Aluminum.2014(s)" />
+        <RoleAffinity>Engine</RoleAffinity>
+        <LocationAsmb X="10" Y="0" Z="0" />
+        <Paf2Asmb X="0" Y="0" Z="1.5708" />
+        <Length M="6" />
+        <OuterRadius M="1.5" />
+        <WallThickness Mm="4" />
+      </CylindricalTank>
+    </Tank>
+    <!-- RCS propellant (MMH/NTO) -->
+    <Tank Id="RcsTank">
+      <CylindricalTank>
+        <Material Id="Aluminum.2014(s)" />
+        <RoleAffinity>Thruster</RoleAffinity>
+        <LocationAsmb X="20" Y="0" Z="0" />
+        <Paf2Asmb X="0" Y="0" Z="1.5708" />
+        <Length M="10" />
+        <OuterRadius M="1.5" />
+        <WallThickness Mm="4" />
+      </CylindricalTank>
+    </Tank>
+
+    <!-- Main engine: the native FPD-1 fusion torch subpart instanced at the hull aft
+         (KSARS_PHM_EngineNozzle in the Assets file). Its SubPartGameData carries the
+         full Rocket+ThermalCore+DeLavalNozzle, so the gimbal binds natively. -->
+    <RocketEngineController Id="MainEngine">
+      <RocketReference Id="Engine" SubPartId="KSARS_PHM_EngineNozzle" />
+    </RocketEngineController>
+    <ConsumerFeedWiring Id="FusionCore" SubPartId="KSARS_PHM_EngineNozzle">
+      <FeedsFrom Container="MainTank" />
+    </ConsumerFeedWiring>
+    <SubPart Id="KSARS_PHM_EngineNozzle">
+      <Gimbal>
+        <MaxAngleY Degrees="2" />
+        <MaxAngleZ Degrees="2" />
+        <ConstrainToCircle Value="false" />
+      </Gimbal>
+    </SubPart>
+
+    <!-- RCS: nose pod cluster (X+68, pod surface r~13.5). Pure pitch/yaw couples. -->
+    <RocketThrusterController Id="RCS_NoseYp_Ctrl">
+      <RocketReference Id="RCS_NoseYp" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_NoseYp"><Core Id="RCS_NoseYp_Chamber" /><Nozzle Id="RCS_NoseYp_Nozzle" /></Rocket>
+    <Combustor Id="RCS_NoseYp_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_NoseYp_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="68" Y="1" Z="13.5" /><ExhaustDirection X="0" Y="0" Z="1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_NoseYm_Ctrl">
+      <RocketReference Id="RCS_NoseYm" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_NoseYm"><Core Id="RCS_NoseYm_Chamber" /><Nozzle Id="RCS_NoseYm_Nozzle" /></Rocket>
+    <Combustor Id="RCS_NoseYm_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_NoseYm_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="68" Y="1" Z="-13.5" /><ExhaustDirection X="0" Y="0" Z="-1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_NoseXp_Ctrl">
+      <RocketReference Id="RCS_NoseXp" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_NoseXp"><Core Id="RCS_NoseXp_Chamber" /><Nozzle Id="RCS_NoseXp_Nozzle" /></Rocket>
+    <Combustor Id="RCS_NoseXp_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_NoseXp_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="68" Y="14.5" Z="0" /><ExhaustDirection X="0" Y="1" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_NoseXm_Ctrl">
+      <RocketReference Id="RCS_NoseXm" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_NoseXm"><Core Id="RCS_NoseXm_Chamber" /><Nozzle Id="RCS_NoseXm_Nozzle" /></Rocket>
+    <Combustor Id="RCS_NoseXm_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_NoseXm_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="68" Y="-12.5" Z="0" /><ExhaustDirection X="0" Y="-1" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <!-- RCS: hull aft cluster (X-24), mirrored pitch/yaw couple partners. -->
+    <RocketThrusterController Id="RCS_TailYp_Ctrl">
+      <RocketReference Id="RCS_TailYp" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TailYp"><Core Id="RCS_TailYp_Chamber" /><Nozzle Id="RCS_TailYp_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TailYp_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TailYp_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-24" Y="0" Z="11.5" /><ExhaustDirection X="0" Y="0" Z="1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TailYm_Ctrl">
+      <RocketReference Id="RCS_TailYm" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TailYm"><Core Id="RCS_TailYm_Chamber" /><Nozzle Id="RCS_TailYm_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TailYm_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TailYm_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-24" Y="0" Z="-11.5" /><ExhaustDirection X="0" Y="0" Z="-1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TailXp_Ctrl">
+      <RocketReference Id="RCS_TailXp" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TailXp"><Core Id="RCS_TailXp_Chamber" /><Nozzle Id="RCS_TailXp_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TailXp_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TailXp_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-24" Y="11.5" Z="0" /><ExhaustDirection X="0" Y="1" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TailXm_Ctrl">
+      <RocketReference Id="RCS_TailXm" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TailXm"><Core Id="RCS_TailXm_Chamber" /><Nozzle Id="RCS_TailXm_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TailXm_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TailXm_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-24" Y="-11.5" Z="0" /><ExhaustDirection X="0" Y="-1" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <!-- RCS: solar-panel-tip roll quads (pure +/-X torque, zero net force).
+         RollRight = -X torque: exh+Z at +Y tip, exh-Z at -Y tip. RollLeft = mirror. -->
+    <RocketThrusterController Id="RCS_RollL_A_Ctrl">
+      <RocketReference Id="RCS_RollL_A" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollL_A"><Core Id="RCS_RollL_A_Chamber" /><Nozzle Id="RCS_RollL_A_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollL_A_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollL_A_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-28.5" Y="62" Z="0" /><ExhaustDirection X="0" Y="0" Z="1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_RollL_B_Ctrl">
+      <RocketReference Id="RCS_RollL_B" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollL_B"><Core Id="RCS_RollL_B_Chamber" /><Nozzle Id="RCS_RollL_B_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollL_B_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollL_B_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-28.5" Y="-62" Z="0" /><ExhaustDirection X="0" Y="0" Z="-1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_RollR_A_Ctrl">
+      <RocketReference Id="RCS_RollR_A" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollR_A"><Core Id="RCS_RollR_A_Chamber" /><Nozzle Id="RCS_RollR_A_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollR_A_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollR_A_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-28.5" Y="62" Z="0" /><ExhaustDirection X="0" Y="0" Z="-1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_RollR_B_Ctrl">
+      <RocketReference Id="RCS_RollR_B" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollR_B"><Core Id="RCS_RollR_B_Chamber" /><Nozzle Id="RCS_RollR_B_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollR_B_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollR_B_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-28.5" Y="-62" Z="0" /><ExhaustDirection X="0" Y="0" Z="1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <!-- RCS: second roll quad at the panel leading-edge tips -->
+    <RocketThrusterController Id="RCS_RollL_C_Ctrl">
+      <RocketReference Id="RCS_RollL_C" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollL_C"><Core Id="RCS_RollL_C_Chamber" /><Nozzle Id="RCS_RollL_C_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollL_C_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollL_C_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-9" Y="62" Z="0" /><ExhaustDirection X="0" Y="0" Z="1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_RollL_D_Ctrl">
+      <RocketReference Id="RCS_RollL_D" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollL_D"><Core Id="RCS_RollL_D_Chamber" /><Nozzle Id="RCS_RollL_D_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollL_D_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollL_D_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-9" Y="-62" Z="0" /><ExhaustDirection X="0" Y="0" Z="-1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_RollR_C_Ctrl">
+      <RocketReference Id="RCS_RollR_C" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollR_C"><Core Id="RCS_RollR_C_Chamber" /><Nozzle Id="RCS_RollR_C_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollR_C_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollR_C_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-9" Y="62" Z="0" /><ExhaustDirection X="0" Y="0" Z="-1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_RollR_D_Ctrl">
+      <RocketReference Id="RCS_RollR_D" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_RollR_D"><Core Id="RCS_RollR_D_Chamber" /><Nozzle Id="RCS_RollR_D_Nozzle" /></Rocket>
+    <Combustor Id="RCS_RollR_D_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_RollR_D_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-9" Y="-62" Z="0" /><ExhaustDirection X="0" Y="0" Z="1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <!-- RCS: dedicated translation thrusters near COM (X~15), pure forces. -->
+    <RocketThrusterController Id="RCS_TransFwd_Ctrl">
+      <RocketReference Id="RCS_TransFwd" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TransFwd"><Core Id="RCS_TransFwd_Chamber" /><Nozzle Id="RCS_TransFwd_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TransFwd_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TransFwd_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-32" Y="0" Z="0" /><ExhaustDirection X="-1" Y="0" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TransBack_Ctrl">
+      <RocketReference Id="RCS_TransBack" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TransBack"><Core Id="RCS_TransBack_Chamber" /><Nozzle Id="RCS_TransBack_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TransBack_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TransBack_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="84.5" Y="1" Z="0" /><ExhaustDirection X="1" Y="0" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TransRight_Ctrl">
+      <RocketReference Id="RCS_TransRight" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TransRight"><Core Id="RCS_TransRight_Chamber" /><Nozzle Id="RCS_TransRight_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TransRight_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TransRight_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="15" Y="-14" Z="0" /><ExhaustDirection X="0" Y="-1" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TransLeft_Ctrl">
+      <RocketReference Id="RCS_TransLeft" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TransLeft"><Core Id="RCS_TransLeft_Chamber" /><Nozzle Id="RCS_TransLeft_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TransLeft_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TransLeft_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="15" Y="14" Z="0" /><ExhaustDirection X="0" Y="1" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TransUp_Ctrl">
+      <RocketReference Id="RCS_TransUp" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TransUp"><Core Id="RCS_TransUp_Chamber" /><Nozzle Id="RCS_TransUp_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TransUp_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TransUp_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="15" Y="0" Z="-14" /><ExhaustDirection X="0" Y="0" Z="-1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+
+    <RocketThrusterController Id="RCS_TransDown_Ctrl">
+      <RocketReference Id="RCS_TransDown" />
+    </RocketThrusterController>
+    <Rocket Id="RCS_TransDown"><Core Id="RCS_TransDown_Chamber" /><Nozzle Id="RCS_TransDown_Nozzle" /></Rocket>
+    <Combustor Id="RCS_TransDown_Chamber">
+      <FeedsFrom Container="RcsTank" /><Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="10" /><ThermalEfficiency Value="0.95" /><MinimumPulseTime Seconds="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="RCS_TransDown_Nozzle">
+      <ExitDiameter M="1.5" /><FxExitDiameter M="0.256" /><AreaRatio Value="40" />
+      <FlowEfficiency Value="1" /><ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="15" Y="0" Z="14" /><ExhaustDirection X="0" Y="0" Z="1" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+  </PartGameData>
+</Assets>

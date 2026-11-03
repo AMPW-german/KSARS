@@ -55,3 +55,9 @@ This was just a small side project and it has a very low priority so it may not 
 Please create an issue on GitHub for any issues or suggestions. Help requests are preferably on GitHub as well but the KSA forums is also fine.\
 This mod is provided as-is and I am not responsible for any issues it may cause.\
 This mod is not affiliated with Kitten Space Agency or its developers in any way.
+
+## Experimental Project Hail Mary content
+
+This public development branch contains experimental Project Hail Mary fan content that is not intended for official KSARS releases. Keep these changes on this branch; do not merge them into a release branch or publish a mod package containing them.
+
+This is a release policy, not a build-time exclusion: building this branch with the current project packaging will include the PHM assets. See [`KSARS/Assets/PHM/README.md`](KSARS/Assets/PHM/README.md) for the model attribution and fan-work disclaimer.

@@ -1,0 +1,255 @@
+  <!-- mat_0: rgb(255,255,232) metal=77 rough=255 -->
+  <PbrMaterial Id="KSARS_PHM_Material_00">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_00.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_00.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat00">
+    <PartModel Id="KSARS_PHM_Subpart_mat00_Model">
+      <Mesh Id="KSARS_PHM_mat00" />
+      <Material Id="KSARS_PHM_Material_00" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat00" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_10: rgb(0,0,0) metal=217 rough=255 -->
+  <PbrMaterial Id="KSARS_PHM_Material_01">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_01.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_01.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat01">
+    <PartModel Id="KSARS_PHM_Subpart_mat01_Model">
+      <Mesh Id="KSARS_PHM_mat01" />
+      <Material Id="KSARS_PHM_Material_01" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat01" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_3: rgb(118,115,111) metal=217 rough=84 -->
+  <PbrMaterial Id="KSARS_PHM_Material_02">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_02.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_02.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat02">
+    <PartModel Id="KSARS_PHM_Subpart_mat02_Model">
+      <Mesh Id="KSARS_PHM_mat02" />
+      <Material Id="KSARS_PHM_Material_02" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat02" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_14: rgb(139,139,139) metal=130 rough=13 -->
+  <PbrMaterial Id="KSARS_PHM_Material_04">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_04.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_04.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat04">
+    <PartModel Id="KSARS_PHM_Subpart_mat04_Model">
+      <Mesh Id="KSARS_PHM_mat04" />
+      <Material Id="KSARS_PHM_Material_04" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat04" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_4: rgb(0,0,0) metal=217 rough=255 -->
+  <PbrMaterial Id="KSARS_PHM_Material_05">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_05.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_05.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat05">
+    <PartModel Id="KSARS_PHM_Subpart_mat05_Model">
+      <Mesh Id="KSARS_PHM_mat05" />
+      <Material Id="KSARS_PHM_Material_05" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat05" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_2: rgb(209,209,209) metal=217 rough=39 -->
+  <PbrMaterial Id="KSARS_PHM_Material_06">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_06.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_06.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat06">
+    <PartModel Id="KSARS_PHM_Subpart_mat06_Model">
+      <Mesh Id="KSARS_PHM_mat06" />
+      <Material Id="KSARS_PHM_Material_06" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat06" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_9: rgb(81,81,81) metal=102 rough=35 -->
+  <PbrMaterial Id="KSARS_PHM_Material_07">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_07.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_07.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat07">
+    <PartModel Id="KSARS_PHM_Subpart_mat07_Model">
+      <Mesh Id="KSARS_PHM_mat07" />
+      <Material Id="KSARS_PHM_Material_07" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat07" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_19: rgb(185,93,0) metal=56 rough=13 -->
+  <PbrMaterial Id="KSARS_PHM_Material_08">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_08.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_08.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat08">
+    <PartModel Id="KSARS_PHM_Subpart_mat08_Model">
+      <Mesh Id="KSARS_PHM_mat08" />
+      <Material Id="KSARS_PHM_Material_08" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat08" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_18: rgb(139,139,139) metal=148 rough=134 -->
+  <PbrMaterial Id="KSARS_PHM_Material_09">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_09.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_09.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat09">
+    <PartModel Id="KSARS_PHM_Subpart_mat09_Model">
+      <Mesh Id="KSARS_PHM_mat09" />
+      <Material Id="KSARS_PHM_Material_09" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat09" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_21: rgb(185,139,0) metal=204 rough=48 -->
+  <PbrMaterial Id="KSARS_PHM_Material_10">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_10.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_10.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat10">
+    <PartModel Id="KSARS_PHM_Subpart_mat10_Model">
+      <Mesh Id="KSARS_PHM_mat10" />
+      <Material Id="KSARS_PHM_Material_10" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat10" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_5: rgb(255,255,232) metal=0 rough=255 -->
+  <PbrMaterial Id="KSARS_PHM_Material_11">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_11.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_11.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat11">
+    <PartModel Id="KSARS_PHM_Subpart_mat11_Model">
+      <Mesh Id="KSARS_PHM_mat11" />
+      <Material Id="KSARS_PHM_Material_11" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat11" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_15: rgb(255,194,23) metal=212 rough=29 -->
+  <PbrMaterial Id="KSARS_PHM_Material_12">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_12.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_12.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat12">
+    <PartModel Id="KSARS_PHM_Subpart_mat12_Model">
+      <Mesh Id="KSARS_PHM_mat12" />
+      <Material Id="KSARS_PHM_Material_12" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat12" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_13: rgb(128,128,128) metal=0 rough=255 -->
+  <PbrMaterial Id="KSARS_PHM_Material_13">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_13.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_13.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat13">
+    <PartModel Id="KSARS_PHM_Subpart_mat13_Model">
+      <Mesh Id="KSARS_PHM_mat13" />
+      <Material Id="KSARS_PHM_Material_13" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat13" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_20: rgb(0,0,70) metal=217 rough=84 -->
+  <PbrMaterial Id="KSARS_PHM_Material_14">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_14.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_14.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat14">
+    <PartModel Id="KSARS_PHM_Subpart_mat14_Model">
+      <Mesh Id="KSARS_PHM_mat14" />
+      <Material Id="KSARS_PHM_Material_14" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat14" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_17: rgb(128,128,128) metal=0 rough=50 -->
+  <PbrMaterial Id="KSARS_PHM_Material_15">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_15.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_15.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat15">
+    <PartModel Id="KSARS_PHM_Subpart_mat15_Model">
+      <Mesh Id="KSARS_PHM_mat15" />
+      <Material Id="KSARS_PHM_Material_15" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat15" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_1: rgb(23,139,255) metal=0 rough=122 -->
+  <PbrMaterial Id="KSARS_PHM_Material_16">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_16.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_16.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat16">
+    <PartModel Id="KSARS_PHM_Subpart_mat16_Model">
+      <Mesh Id="KSARS_PHM_mat16" />
+      <Material Id="KSARS_PHM_Material_16" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat16" />
+    </MeshView>
+  </SubPart>
+  <!-- mat_7: rgb(255,255,255) metal=26 rough=187 -->
+  <PbrMaterial Id="KSARS_PHM_Material_17">
+    <Diffuse Path="Assets/PHM/Textures/phm_diff_17.png" Category="Vessel" />
+    <Normal Path="Assets/PHM/Textures/phm_normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Assets/PHM/Textures/phm_pbr_17.png" Category="Vessel" />
+  </PbrMaterial>
+  <SubPart Id="KSARS_PHM_Subpart_mat17">
+    <PartModel Id="KSARS_PHM_Subpart_mat17_Model">
+      <Mesh Id="KSARS_PHM_mat17" />
+      <Material Id="KSARS_PHM_Material_17" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSARS_PHM_mat17" />
+    </MeshView>
+  </SubPart>

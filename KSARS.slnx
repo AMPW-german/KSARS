@@ -1,8 +1,19 @@
 <Solution>
+  <Configurations>
+    <BuildType Name="cinematic" />
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+  </Configurations>
   <Folder Name="/Solution Items/">
     <File Path=".github/copilot-instructions.md" />
   </Folder>
-  <Project Path="KSARS/KSARS.csproj" />
-  <Project Path="tests/KSARS.Visuals.Tests/KSARS.Visuals.Tests.csproj" />
-  <Project Path="tools/SpectralTables/SpectralTables.csproj" />
+  <Project Path="KSARS/KSARS.csproj">
+    <BuildType Solution="cinematic|*" Project="Cinematic" />
+  </Project>
+  <Project Path="tests/KSARS.Visuals.Tests/KSARS.Visuals.Tests.csproj">
+    <BuildType Solution="cinematic|*" Project="Release" />
+  </Project>
+  <Project Path="tools/SpectralTables/SpectralTables.csproj">
+    <BuildType Solution="cinematic|*" Project="Release" />
+  </Project>
 </Solution>

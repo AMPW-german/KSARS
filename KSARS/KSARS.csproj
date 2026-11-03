@@ -14,7 +14,7 @@
 
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<Configurations>Debug;Release</Configurations>
+		<Configurations>Debug;Release;Cinematic</Configurations>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 
 		<VersionPrefix>1.1.0</VersionPrefix>
@@ -48,6 +48,10 @@
 		<Optimize>true</Optimize>
 		<DefineConstants>TRACE</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Cinematic|AnyCPU' ">
+		<Optimize>true</Optimize>
+		<DefineConstants>TRACE;CINEMATIC</DefineConstants>
+	</PropertyGroup>
 
 	<Import Project="KSADLLs.props" />
 
@@ -64,6 +68,17 @@
 		<None Update="HydroloxEfficiency.xml">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		  <ModManifestArray>assets</ModManifestArray>
+		</None>
+		<None Update="Assets\PHM\KSARS_PHMAssets.xml">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		  <ModManifestArray>assets</ModManifestArray>
+		</None>
+		<None Update="Assets\PHM\KSARS_PHMGameData.xml">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		  <ModManifestArray>assets</ModManifestArray>
+		</None>
+		<None Update="Assets\PHM\Meshes\**;Assets\PHM\Textures\**">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 
