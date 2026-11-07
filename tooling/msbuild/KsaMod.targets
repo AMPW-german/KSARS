@@ -1,0 +1,143 @@
+<Project>
+  <PropertyGroup>
+    <AssemblyName Condition="'$(AssemblyName)' == ''">$(ModName)</AssemblyName>
+    <OutputPath Condition="'$(OutputPath)' == ''">bin\$(Configuration)</OutputPath>
+    <Version Condition="'$(Version)' == '' and '$(VersionPrefix)' != ''">$(VersionPrefix)</Version>
+    <FileVersion Condition="'$(FileVersion)' == '' and '$(VersionPrefix)' != ''">$(VersionPrefix).0</FileVersion>
+
+    <_KsaCoreDllDir>$(KSADir)</_KsaCoreDllDir>
+    <_KsaCoreDllDir Condition="'$(UseKsaNuGetPackages)' == 'true' and !Exists('$(KSADir)KsaNuGet.props') and '$(KSADllRepoDir)' != '' and Exists('$(KSADllRepoDir)KSA.dll')">$(KSADllRepoDir)</_KsaCoreDllDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <_KsaCoreAssemblies Include="$(_KsaCoreDllDir)KSA.dll" Path="%(FullPath)" />
+    <_KsaCoreAssemblies Include="$(_KsaCoreDllDir)Planet*.dll" Path="%(FullPath)" />
+    <Reference Include="@(_KsaCoreAssemblies->'%(FileName)')" HintPath="%(Path)" Private="False" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseKsaNuGetPackages)' != 'true'">
+    <_KsaLocalAssemblies Include="$(KSADir)Brutal*.dll" Path="%(FullPath)" />
+    <_KsaLocalAssemblies Include="$(KSADir)Bepu*.dll" Path="%(FullPath)" />
+    <_KsaLocalAssemblies Include="$(KSADir)Tomlet.dll" Path="%(FullPath)" />
+    <Reference Include="@(_KsaLocalAssemblies->'%(FileName)')" HintPath="%(Path)" Private="False" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IncludeStarMapApi)' != 'false'">
+    <Reference Include="StarMap.API">
+      <HintPath>$(KSAModsDir)StarMap/StarMap.API.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="SetVersionMetadata" BeforeTargets="GetAssemblyVersion">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitShortHashRaw" />
+    </Exec>
+
+    <PropertyGroup>
+      <GitShortHash Condition="'$(GitShortHashRaw)' != ''">$([System.String]::Copy('$(GitShortHashRaw)').Trim())</GitShortHash>
+      <GitShortHash Condition="'$(GitShortHash)' == ''">nogit</GitShortHash>
+      <InformationalVersion>v$(VersionPrefix).$(GitShortHash)$(InformationalVersionPostfix)</InformationalVersion>
+      <ProductVersion>$(InformationalVersion)</ProductVersion>
+    </PropertyGroup>
+  </Target>
+
+  <ItemGroup>
+    <CopyDestination Include="$(MSBuildProjectDirectory)/../Release/$(ModName)/" />
+    <CopyDestination Include="$(KSAModsDir)$(ModName)/" Condition="'$(CI)' != 'true' and '$(CopyToLocalMods)' != 'false' and '$(KSAModsDir)' != '' and Exists('$(KSAModsDir)')" />
+  </ItemGroup>
+
+  <Target Name="CopyBuildOutput" AfterTargets="Build" Condition="'$(SkipModPackaging)' != 'true'">
+    <ItemGroup>
+      <_NormalizedCopyDestination Include="@(CopyDestination->'%(FullPath)')" />
+    </ItemGroup>
+    <RemoveDuplicates Inputs="@(_NormalizedCopyDestination)">
+      <Output TaskParameter="Filtered" ItemName="_UniqueCopyDestination" />
+    </RemoveDuplicates>
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="_CopyToSingleDestination" Properties="SingleCopyDestination=%(_UniqueCopyDestination.Identity)" />
+  </Target>
+
+  <Target Name="_CopyToSingleDestination" Condition="'$(SkipModPackaging)' != 'true'">
+    <Message Text="Refreshing $(SingleCopyDestination)" Importance="high" />
+
+    <ItemGroup>
+      <FilesToCopy Include="$(OutputPath)**\*" />
+      <ModManifestArrayItems Include="@(None)" Condition="'%(None.ModManifestArray)' != ''" />
+      <ModManifestArrayNames Include="@(ModManifestArrayItems->'%(ModManifestArray)')" />
+    </ItemGroup>
+
+    <RemoveDuplicates Inputs="@(ModManifestArrayNames)">
+      <Output TaskParameter="Filtered" ItemName="UniqueModManifestArrayNames" />
+    </RemoveDuplicates>
+
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="_CreateModManifestArrayLine"
+      Properties="ModManifestArrayName=%(UniqueModManifestArrayNames.Identity)"
+      Condition="'@(UniqueModManifestArrayNames)' != ''">
+      <Output TaskParameter="TargetOutputs" ItemName="ModManifestArrayLines" />
+    </MSBuild>
+
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="_CreateStarMapModDependencyLines"
+      Properties="StarMapModDependencyId=%(StarMapModDependency.Identity)"
+      Condition="'@(StarMapModDependency)' != ''">
+      <Output TaskParameter="TargetOutputs" ItemName="StarMapModDependencyLines" />
+    </MSBuild>
+
+    <RemoveDir Directories="$(SingleCopyDestination)" />
+    <MakeDir Directories="$(SingleCopyDestination)" />
+
+    <Copy SourceFiles="@(FilesToCopy)" DestinationFiles="@(FilesToCopy->'$(SingleCopyDestination)%(RecursiveDir)%(Filename)%(Extension)')" />
+
+    <ItemGroup>
+      <ModManifestLines Include="name = &quot;$(ModName)&quot;" />
+      <ModManifestLines Include="version = &quot;v$(Version)&quot;" />
+      <ModManifestLines Include="author = &quot;$(Authors)&quot;" />
+      <ModManifestLines Include="description = &quot;$(Description)&quot;" />
+      <ModManifestLines Include="@(ModManifestArrayLines)">
+        <Separator>$([System.Environment]::NewLine)</Separator>
+      </ModManifestLines>
+      <ModManifestLines Include="[StarMap]">
+        <Separator>$([System.Environment]::NewLine)</Separator>
+      </ModManifestLines>
+      <ModManifestLines Include="EntryAssembly = &quot;$(AssemblyName)&quot;" />
+      <ModManifestLines Include="@(StarMapModDependencyLines)" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(SingleCopyDestination)mod.toml" Lines="@(ModManifestLines->'%(Separator)%(Identity)')" Overwrite="true" />
+  </Target>
+
+  <Target Name="_CreateModManifestArrayLine" Returns="@(ModManifestArrayLine)">
+    <ItemGroup>
+      <ModManifestArrayFiles Include="@(None)" Condition="'%(None.ModManifestArray)' == '$(ModManifestArrayName)'">
+        <ManifestPath>$([System.String]::Copy('%(Identity)').Replace('\', '/'))</ManifestPath>
+      </ModManifestArrayFiles>
+    </ItemGroup>
+    <PropertyGroup>
+      <ModManifestArrayValues>@(ModManifestArrayFiles->'&quot;%(ManifestPath)&quot;', ', ')</ModManifestArrayValues>
+    </PropertyGroup>
+    <ItemGroup>
+      <ModManifestArrayLine Include="$(ModManifestArrayName) = [ $(ModManifestArrayValues) ]" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_CreateStarMapModDependencyLines" Returns="@(StarMapModDependencyLine)">
+    <ItemGroup>
+      <CurrentStarMapModDependency Include="@(StarMapModDependency)"
+        Condition="'%(StarMapModDependency.Identity)' == '$(StarMapModDependencyId)'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <StarMapModDependencyOptional>@(CurrentStarMapModDependency->'%(Optional)')</StarMapModDependencyOptional>
+      <StarMapModDependencyOptional Condition="'$(StarMapModDependencyOptional)' == ''">false</StarMapModDependencyOptional>
+      <StarMapModDependencyOptional>$([System.String]::Copy('$(StarMapModDependencyOptional)').ToLowerInvariant())</StarMapModDependencyOptional>
+      <StarMapImportedAssemblies>@(CurrentStarMapModDependency->'%(ImportedAssemblies)')</StarMapImportedAssemblies>
+      <StarMapImportedAssemblyValues>$([System.String]::Copy('$(StarMapImportedAssemblies)').Replace(';', '&quot;, &quot;'))</StarMapImportedAssemblyValues>
+    </PropertyGroup>
+    <ItemGroup>
+      <StarMapModDependencyLine Include="[[StarMap.ModDependencies]]">
+        <Separator>$([System.Environment]::NewLine)</Separator>
+      </StarMapModDependencyLine>
+      <StarMapModDependencyLine Include="ModId = &quot;$(StarMapModDependencyId)&quot;" />
+      <StarMapModDependencyLine Include="Optional = $(StarMapModDependencyOptional)" />
+      <StarMapModDependencyLine Include="ImportedAssemblies = [ &quot;$(StarMapImportedAssemblyValues)&quot; ]" />
+    </ItemGroup>
+  </Target>
+</Project>

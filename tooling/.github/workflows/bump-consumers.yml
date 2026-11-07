@@ -1,0 +1,203 @@
+name: Bump Consumer Submodules
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bump-consumers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discover installed consumer repositories and open/auto-merge bump PRs
+        shell: bash
+        env:
+          APP_ID: ${{ vars.UPDATER_APP_ID != '' && vars.UPDATER_APP_ID || secrets.UPDATER_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.UPDATER_APP_PRIVATE_KEY }}
+          TARGET_SHA: ${{ github.sha }}
+          TOOLING_REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$APP_ID" ] || [ -z "$APP_PRIVATE_KEY" ]; then
+            echo "UPDATER_APP_ID or UPDATER_APP_PRIVATE_KEY is not configured; skipping consumer bump."
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import tempfile
+          import time
+          import urllib.request
+
+          app_id = os.environ["APP_ID"].strip()
+          private_key = os.environ["APP_PRIVATE_KEY"].strip()
+          target_sha = os.environ["TARGET_SHA"].strip()
+          short_sha = target_sha[:7]
+          tooling_repo = os.environ["TOOLING_REPO"].strip().lower()
+
+          def b64url(data: bytes) -> str:
+              return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+          def make_jwt() -> str:
+              now = int(time.time())
+              header = {"alg": "RS256", "typ": "JWT"}
+              payload = {"iat": now - 60, "exp": now + 540, "iss": app_id}
+              signing_input = f"{b64url(json.dumps(header, separators=(',', ':')).encode())}.{b64url(json.dumps(payload, separators=(',', ':')).encode())}"
+              with tempfile.NamedTemporaryFile("w", delete=False) as key_file:
+                  key_file.write(private_key + "\n")
+                  key_path = key_file.name
+              try:
+                  sig = subprocess.check_output(
+                      ["openssl", "dgst", "-sha256", "-sign", key_path],
+                      input=signing_input.encode("ascii"),
+                  )
+              finally:
+                  os.unlink(key_path)
+              return f"{signing_input}.{b64url(sig)}"
+
+          def api_request(url: str, token: str, method: str = "GET", body: dict | None = None) -> dict | list:
+              data = json.dumps(body).encode("utf-8") if body is not None else None
+              headers = {
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2026-03-10",
+                  "User-Agent": "KSAModTools-Updater/1.0",
+              }
+              if data is not None:
+                  headers["Content-Type"] = "application/json"
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              with urllib.request.urlopen(req) as resp:
+                  return json.loads(resp.read().decode("utf-8"))
+
+          app_jwt = make_jwt()
+          installations = api_request("https://api.github.com/app/installations?per_page=100", app_jwt)
+          print(f"Found {len(installations)} installation(s) of KSAModTools updater app.")
+
+          for inst in installations:
+              inst_id = inst["id"]
+              token_resp = api_request(
+                  f"https://api.github.com/app/installations/{inst_id}/access_tokens",
+                  app_jwt,
+                  method="POST",
+              )
+              inst_token = token_resp["token"]
+              repos_resp = api_request(
+                  "https://api.github.com/installation/repositories?per_page=100",
+                  inst_token,
+              )
+              for repo_info in repos_resp.get("repositories", []):
+                  full_name = repo_info["full_name"]
+                  if full_name.lower() == tooling_repo or repo_info.get("archived"):
+                      continue
+                  default_branch = repo_info.get("default_branch", "main")
+                  print(f"--- Processing {full_name} (default branch: {default_branch}) ---")
+                  with tempfile.TemporaryDirectory() as tmpdir:
+                      repo_dir = pathlib.Path(tmpdir) / "repo"
+                      clone_url = f"https://x-access-token:{inst_token}@github.com/{full_name}.git"
+                      subprocess.run(
+                          ["git", "clone", "--depth", "1", "--branch", default_branch, clone_url, str(repo_dir)],
+                          check=True,
+                      )
+                      gitmodules = repo_dir / ".gitmodules"
+                      if not gitmodules.is_file() or "tooling" not in gitmodules.read_text(encoding="utf-8"):
+                          print(f"Skipping {full_name}: no 'tooling' submodule in .gitmodules.")
+                          continue
+
+                      ls_tree = subprocess.check_output(
+                          ["git", "ls-tree", "HEAD", "tooling"],
+                          cwd=repo_dir,
+                          text=True,
+                      ).strip()
+                      if not ls_tree:
+                          print(f"Skipping {full_name}: 'tooling' path not found in HEAD tree.")
+                          continue
+                      current_sha = ls_tree.split()[2]
+                      if current_sha == target_sha:
+                          print(f"Skipping {full_name}: tooling already at {short_sha}.")
+                          continue
+
+                      branch_name = "chore/bump-tooling"
+                      subprocess.run(["git", "checkout", "-B", branch_name], cwd=repo_dir, check=True)
+                      subprocess.run(
+                          ["git", "update-index", "--cacheinfo", f"160000,{target_sha},tooling"],
+                          cwd=repo_dir,
+                          check=True,
+                      )
+                      subprocess.run(["git", "config", "user.name", "ksa-mod-tools[bot]"], cwd=repo_dir, check=True)
+                      subprocess.run(
+                          ["git", "config", "user.email", "ksa-mod-tools[bot]@users.noreply.github.com"],
+                          cwd=repo_dir,
+                          check=True,
+                      )
+                      commit_msg = f"chore: bump KSAModTools to {short_sha}"
+                      subprocess.run(["git", "commit", "-m", commit_msg], cwd=repo_dir, check=True)
+                      subprocess.run(
+                          ["git", "push", "--force", "origin", f"HEAD:refs/heads/{branch_name}"],
+                          cwd=repo_dir,
+                          check=True,
+                      )
+
+                      env = {**os.environ, "GH_TOKEN": inst_token}
+                      existing_pr = subprocess.check_output(
+                          [
+                              "gh", "pr", "list",
+                              "--repo", full_name,
+                              "--head", branch_name,
+                              "--base", default_branch,
+                              "--json", "number",
+                              "--jq", ".[0].number // empty",
+                          ],
+                          env=env,
+                          text=True,
+                      ).strip()
+
+                      pr_body = (
+                          f"Automated submodule update of `tooling` (`KSAModTools`) from "
+                          f"`{current_sha[:7]}` to `{short_sha}`."
+                      )
+                      if existing_pr:
+                          pr_number = existing_pr
+                          subprocess.run(
+                              [
+                                  "gh", "pr", "edit", pr_number,
+                                  "--repo", full_name,
+                                  "--title", commit_msg,
+                                  "--body", pr_body,
+                              ],
+                              env=env,
+                              check=True,
+                          )
+                          print(f"Updated existing PR #{pr_number} in {full_name}.")
+                      else:
+                          pr_url = subprocess.check_output(
+                              [
+                                  "gh", "pr", "create",
+                                  "--repo", full_name,
+                                  "--head", branch_name,
+                                  "--base", default_branch,
+                                  "--title", commit_msg,
+                                  "--body", pr_body,
+                              ],
+                              env=env,
+                              text=True,
+                          ).strip()
+                          pr_number = pr_url.rstrip("/").split("/")[-1]
+                          print(f"Created PR #{pr_number} in {full_name}: {pr_url}")
+
+                      auto_res = subprocess.run(
+                          ["gh", "pr", "merge", pr_number, "--repo", full_name, "--auto", "--squash", "--delete-branch"],
+                          env=env,
+                      )
+                      if auto_res.returncode != 0:
+                          subprocess.run(
+                              ["gh", "pr", "merge", pr_number, "--repo", full_name, "--squash", "--delete-branch"],
+                              env=env,
+                          )
+          PY

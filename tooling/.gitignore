@@ -1,0 +1,4 @@
+.ksa-tools.env
+local.config.props
+__pycache__/
+*.pyc
