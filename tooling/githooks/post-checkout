@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-# Syncs the tooling submodule on branch checkout unless dirty or overridden.
-
-HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-exec "$HOOK_DIR/post-merge" "$@"
