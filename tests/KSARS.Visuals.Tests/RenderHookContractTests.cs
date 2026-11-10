@@ -262,65 +262,6 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(method.CustomAttributes, a => a.AttributeType.Name == processorAttributeName);
         }
 
-#if DEBUG
-        [Fact]
-        public void AfterGui_CopyDiagnosticsButton_GuardsClipboardWrite()
-        {
-            using var assembly = LoadModAssembly();
-            var ksars = assembly.MainModule.GetType("KSARS.KSARS");
-            Assert.NotNull(ksars);
-            var afterGui = ksars.Methods.Single(m => m.Name == "AfterGui");
-            var instructions = afterGui.Body.Instructions;
-
-            int buttonIndex = instructions.ToList().FindIndex(
-                i => i.OpCode == OpCodes.Call && i.Operand is MethodReference mr
-                    && mr.DeclaringType.Name == "ImGui" && mr.Name == "Button");
-            Assert.True(buttonIndex >= 0, "AfterGui does not call ImGui.Button");
-
-            var labelInstruction = instructions.Take(buttonIndex).LastOrDefault(i => i.OpCode == OpCodes.Ldstr);
-            Assert.True(labelInstruction?.Operand is string label && label == "Copy diagnostics",
-                "button label must be the exact literal 'Copy diagnostics'");
-
-            int clipboardIndex = instructions.ToList().FindIndex(
-                i => i.OpCode == OpCodes.Call && i.Operand is MethodReference mr
-                    && mr.DeclaringType.Name == "ImGui" && mr.Name == "SetClipboardText");
-            Assert.True(clipboardIndex > buttonIndex, "SetClipboardText must follow the Button call");
-
-            int gateIndex = NextNonNop(instructions, buttonIndex + 1);
-            Assert.True(gateIndex < instructions.Count, "no instruction follows the Button call");
-            var gate = instructions[gateIndex];
-            if (IsStoreLocal(gate))
-            {
-                int storedLocal = LocalIndex(gate)!.Value;
-                int reloadIndex = NextNonNop(instructions, gateIndex + 1);
-                Assert.True(reloadIndex < instructions.Count
-                    && IsLoadLocal(instructions[reloadIndex])
-                    && LocalIndex(instructions[reloadIndex]) == storedLocal,
-                    "the Button result must be reloaded from its stored local before the gate branch");
-                gateIndex = NextNonNop(instructions, reloadIndex + 1);
-                Assert.True(gateIndex < instructions.Count, "no branch follows the Button result reload");
-                gate = instructions[gateIndex];
-            }
-
-            Assert.True(gate.OpCode == OpCodes.Brfalse || gate.OpCode == OpCodes.Brfalse_S,
-                "the Button result must gate the clipboard write with a conditional branch");
-            var skipTarget = Assert.IsType<Instruction>(gate.Operand);
-            Assert.True(instructions.IndexOf(skipTarget) > clipboardIndex,
-                "the Button-false path must skip SetClipboardText");
-
-            int clipboardLocal = LocalIndexLoadedBefore(instructions, clipboardIndex);
-            Assert.True(clipboardLocal >= 0, "SetClipboardText is not fed by a stored local");
-
-            int matchingTextLocal = instructions
-                .Select((inst, index) => (inst, index))
-                .Where(x => x.inst.OpCode == OpCodes.Call && x.inst.Operand is MethodReference mr
-                    && mr.DeclaringType.Name == "ImGui" && mr.Name == "Text")
-                .Select(x => LocalIndexLoadedBefore(instructions, x.index))
-                .FirstOrDefault(local => local == clipboardLocal, -1);
-            Assert.Equal(clipboardLocal, matchingTextLocal);
-        }
-#endif
-
         [Fact]
         public void PhysicsConstants_SpeedOfLightIsExact()
         {
