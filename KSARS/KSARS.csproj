@@ -4,7 +4,7 @@
 	<PropertyGroup>
 		<ModName>KSARS</ModName>
 
-		<VersionPrefix>1.1.0</VersionPrefix>
+		<VersionPrefix>1.1.1</VersionPrefix>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 
 		<Company>AMPW</Company>
@@ -15,6 +15,14 @@
 	<ItemGroup>
 		<InternalsVisibleTo Include="KSARS.Visuals.Tests" />
 	</ItemGroup>
+
+	<!-- Runtime renderer diagnostics (per-second status log at
+	     %TEMP%\ksars-visuals-status.log and verbose solar-cull/reject detail
+	     in the status strings) are compiled out in every configuration.
+	     Enable with: dotnet build -p:KsarsDiagnostics=true -->
+	<PropertyGroup Condition="'$(KsarsDiagnostics)' == 'true'">
+		<DefineConstants>$(DefineConstants);KSARS_DIAGNOSTICS</DefineConstants>
+	</PropertyGroup>
 
 	<ItemGroup>
 		<None Update="HydroloxEfficiency.xml">

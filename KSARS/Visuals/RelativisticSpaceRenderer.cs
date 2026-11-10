@@ -49,6 +49,7 @@ namespace KSARS.Visuals
         private static FieldInfo? s_sunflareFrameCountField;
         private static SolarGlowShaderSources? s_solarGlareSources;
         private static bool s_solarGlareCtorFailed;
+        private static string? s_solarGlareError;
         private static string s_solarGlareStatus = "solar glare pass not recorded";
         private static bool s_mainSolarPrepared;
         private static bool s_mainSolarPresented;
@@ -475,6 +476,7 @@ namespace KSARS.Visuals
             s_mainSolarPresented = false;
             s_mainSolarStatus = "main solar waiting: per-slot resources retired at verified idle rebuild; native Sun path retained";
             s_solarGlareCtorFailed = false;
+            s_solarGlareError = null;
             s_solarGlareStatus = "solar glare pass retired at verified idle rebuild; waiting for current frame";
             if (!s_recordingDisabled)
             {
@@ -2611,7 +2613,14 @@ namespace KSARS.Visuals
             string omittedNote = frame.OmittedBodies.Count > 0
                 ? $"; {frame.OmittedBodies.Count} tiny source(s) omitted (observed <=6px; nonphysical visibility simplification), native sphere suppressed"
                 : "";
-            s_mainStatus = $"main probe prepared {count}/{AtlasMainPass.MaxBodies} resolved source(s){(frame.Solar.Prepared ? "+1 solar" : "")} on syncSlot={slotIndex} resourceFrame={resourceIndex} ({limited} below native rest >6px threshold unsupported; rest<=6px observed>6px stays stock{culledNote}{omittedNote}); diagnostic composite pending, finite HDR clamp 65504";
+#if KSARS_DIAGNOSTICS
+            string solarCulledFlag = frame.Solar.Culled ? "+solar culled" : "";
+            string lastRejectNote = $"; last reject: {s_mainLastRejection}";
+#else
+            const string solarCulledFlag = "";
+            const string lastRejectNote = "";
+#endif
+            s_mainStatus = $"main probe prepared {count}/{AtlasMainPass.MaxBodies} resolved source(s){(frame.Solar.Prepared ? "+1 solar" : "")}{solarCulledFlag} on syncSlot={slotIndex} resourceFrame={resourceIndex} ({limited} below native rest >6px threshold unsupported; rest<=6px observed>6px stays stock{culledNote}{omittedNote}{lastRejectNote}); diagnostic composite pending, finite HDR clamp 65504";
         }
 
         private static void RunNativeDistanceAndComposite(CommandBuffer commandBuffer, IViewport viewport, int frameIndex)
@@ -2843,7 +2852,8 @@ namespace KSARS.Visuals
             catch (Exception ex)
             {
                 s_solarGlareCtorFailed = true;
-                s_solarGlareStatus = $"solar glare disabled: installed shader adaptation unsupported ({ex.GetType().Name}: {ex.Message}); stock flare withheld only while solar replacement is presented";
+                s_solarGlareError = $"installed shader adaptation unsupported ({ex.GetType().Name}: {ex.Message})";
+                s_solarGlareStatus = $"solar glare disabled: {s_solarGlareError}; stock flare withheld only while solar replacement is presented";
                 Console.WriteLine($"KSARS: {s_solarGlareStatus}");
                 return null;
             }
@@ -2958,7 +2968,7 @@ namespace KSARS.Visuals
             MainAtlasFrame.SolarSlot solar = frame.Solar;
             if (s_solarGlareCtorFailed)
             {
-                s_solarGlareStatus = "solar glare disabled: pass construction or shader adaptation failed earlier; no glow this frame (native stock-position flare withheld; atlas disc retained)";
+                s_solarGlareStatus = $"solar glare disabled: {s_solarGlareError ?? "pass construction or shader adaptation failed earlier"}; no glow this frame (native stock-position flare withheld; atlas disc retained)";
                 return;
             }
 
@@ -3003,7 +3013,8 @@ namespace KSARS.Visuals
                     catch (Exception ex)
                     {
                         s_solarGlareCtorFailed = true;
-                        s_solarGlareStatus = $"solar glare disabled: pass construction failed ({ex.GetType().Name}: {ex.Message}); no glow for remaining frames this session";
+                        s_solarGlareError = $"pass construction failed ({ex.GetType().Name}: {ex.Message})";
+                        s_solarGlareStatus = $"solar glare disabled: {s_solarGlareError}; no glow for remaining frames this session";
                         Console.WriteLine($"KSARS: {s_solarGlareStatus}");
                         return;
                     }
@@ -3123,9 +3134,9 @@ namespace KSARS.Visuals
                 return;
             }
 
-            if (!RelativisticOptics.TryTransformSphericalCap(restPosition, projection.RestAngularRadius,
-                    frame.Observer, out ObservedSphericalCap cap)
-                || !cap.IntersectsViewCone(mainForward, viewCorner))
+            bool capOk = RelativisticOptics.TryTransformSphericalCap(restPosition,
+                projection.RestAngularRadius, frame.Observer, out ObservedSphericalCap cap);
+            if (!capOk || !cap.IntersectsViewCone(mainForward, viewCorner))
             {
                 // The transformed sun is not inside the observed view (or the cap transform
                 // degenerated), but the native rest-position Sun would still draw where the
@@ -3141,7 +3152,14 @@ namespace KSARS.Visuals
                     sun, snapshot.ResourceFrameIndex, frame.RendererEpoch);
                 solar.Culled = true;
                 ComputeSolarGlareAnchor(snapshot, in frame.Observer, sun, in projection, in model, solar);
-                s_mainSolarStatus = $"main solar culled star={sun.Id} nativeFrame={snapshot.CameraData.Frame} resourceFrame={snapshot.ResourceFrameIndex} syncSlot={frame.SyncSlotIndex}: transformed sun outside observed view; native Sun mesh + Sunbloom suppressed this frame; owned glare {(solar.GlareAnchored ? $"anchored uv=({solar.GlareAnchorUv.X:F3},{solar.GlareAnchorUv.Y:F3})" : "unanchored (behind camera or unsupported)")}";
+#if KSARS_DIAGNOSTICS
+                string cullWhy = !capOk
+                    ? $"cap transform failed (observerQ={frame.Observer.Q:G6} beta={frame.Observer.Speed / PhysicsConstants.SpeedOfLight:G6} restAngularRadius={projection.RestAngularRadius:G6} distance={projection.Distance:G6})"
+                    : $"capAxis=({cap.Axis.X:F4},{cap.Axis.Y:F4},{cap.Axis.Z:F4}) capRadius={cap.AngularRadius:F6} forward=({mainForward.X:F4},{mainForward.Y:F4},{mainForward.Z:F4}) dot={cap.Axis.Dot(mainForward):F6} need>={Math.Cos(cap.AngularRadius + viewCorner):F6} viewCorner={viewCorner:F6} observerQ={frame.Observer.Q:G6}";
+#else
+                const string cullWhy = "";
+#endif
+                s_mainSolarStatus = $"main solar culled star={sun.Id} nativeFrame={snapshot.CameraData.Frame} resourceFrame={snapshot.ResourceFrameIndex} syncSlot={frame.SyncSlotIndex}: transformed sun outside observed view{(cullWhy.Length > 0 ? $" ({cullWhy})" : "")}; native Sun mesh + Sunbloom suppressed this frame; owned glare {(solar.GlareAnchored ? $"anchored uv=({solar.GlareAnchorUv.X:F3},{solar.GlareAnchorUv.Y:F3})" : "unanchored (behind camera or unsupported)")}";
                 return;
             }
 

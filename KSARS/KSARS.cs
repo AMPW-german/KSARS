@@ -42,6 +42,9 @@ namespace KSARS
         private static bool _stopRotationRequested;
         private static doubleQuat _lockedAttitude;
         private static bool _hasLockedAttitude;
+#if KSARS_DIAGNOSTICS
+        private static double _statusLogTimer;
+#endif
 
         private readonly struct RelativisticIntegrationState
         {
@@ -140,6 +143,32 @@ namespace KSARS
 
             Visuals.RelativisticVisuals.DrawProbeGui();
             ImGui.End();
+
+#if KSARS_DIAGNOSTICS
+            // KSARS_DIAGNOSTICS builds only (enable via -p:KsarsDiagnostics=true, see
+            // KSARS.csproj): append the renderer status once per second so per-frame
+            // gate decisions survive the session for post-run inspection. The file is
+            // truncated back to empty once it exceeds 4 MB.
+            _statusLogTimer += dt;
+            if (_statusLogTimer >= 1.0)
+            {
+                _statusLogTimer = 0.0;
+                try
+                {
+                    string logPath = Path.Combine(Path.GetTempPath(), "ksars-visuals-status.log");
+                    if (File.Exists(logPath) && new FileInfo(logPath).Length > 4 * 1024 * 1024)
+                    {
+                        File.WriteAllText(logPath, "");
+                    }
+
+                    File.AppendAllText(logPath,
+                        $"{DateTime.Now:O}\t{Visuals.RelativisticVisuals.Status}\n");
+                }
+                catch
+                {
+                }
+            }
+#endif
         }
 
         // Disable structural failure detection to prevent unrealistic breakage at relativistic speeds

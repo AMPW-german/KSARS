@@ -16,17 +16,23 @@ namespace KSARS.Visuals
 
         private static readonly Regex IncludePattern =
             new("^[ \t]*#include[ \t]+\"([^\"]+)\"", RegexOptions.Compiled);
+        private static readonly Regex MainColorFormatPattern =
+            new("^[ \t]*#[ \t]*define[ \t]+MAIN_COLOR_FORMAT[ \t]+(\\w+)",
+                RegexOptions.Compiled | RegexOptions.Multiline);
 
-        private SolarGlowShaderSources(string fragmentSource, string blurSource, string mergeSource)
+        private SolarGlowShaderSources(string fragmentSource, string blurSource, string mergeSource,
+            string mainColorFormatGlsl)
         {
             FragmentSource = fragmentSource;
             BlurSource = blurSource;
             MergeSource = mergeSource;
+            MainColorFormatGlsl = mainColorFormatGlsl;
         }
 
         internal string FragmentSource { get; }
         internal string BlurSource { get; }
         internal string MergeSource { get; }
+        internal string MainColorFormatGlsl { get; }
 
         internal static string ResolveShaderRoot(string assemblyLocation)
         {
@@ -52,7 +58,15 @@ namespace KSARS.Visuals
             string blur = AdaptBlur(ExpandFile(root, blurPath, new HashSet<string>(),
                 stripAtmosphereBindings: true));
             string merge = AdaptMerge(ExpandFile(root, mergePath, new HashSet<string>()));
-            return new SolarGlowShaderSources(fragment, blur, merge);
+            Match formatMatch = MainColorFormatPattern.Match(merge);
+            if (!formatMatch.Success)
+            {
+                throw new InvalidOperationException(
+                    "solar glare shader sources unsupported: MAIN_COLOR_FORMAT define missing from merge shader");
+            }
+
+            return new SolarGlowShaderSources(fragment, blur, merge,
+                formatMatch.Groups[1].Value);
         }
 
         private static string ReadNormalized(string path)

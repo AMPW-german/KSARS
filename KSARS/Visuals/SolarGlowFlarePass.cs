@@ -20,10 +20,20 @@ namespace KSARS.Visuals
         private const VkFormat ImageFormat = VkFormat.R16G16B16A16SFloat;
         private const int LocalSize = 8;
 
+        private static VkFormat SceneFormatFromGlsl(string glsl) => glsl switch
+        {
+            "r11f_g11f_b10f" => VkFormat.B10G11R11UfloatPack32,
+            "rgba16f" => VkFormat.R16G16B16A16SFloat,
+            "rgba32f" => VkFormat.R32G32B32A32SFloat,
+            _ => throw new InvalidOperationException(
+                $"solar glare pass unsupported: MAIN_COLOR_FORMAT '{glsl}' has no VkFormat mapping"),
+        };
+
         private readonly Core.Renderer _renderer;
         private readonly RenderTarget _borrowedTarget;
         private readonly AtlasMainPass _atlas;
         private readonly VkExtent2D _extent;
+        private readonly VkFormat _sceneColorFormat;
 
         private readonly VkShaderModule _vertexModule;
         private readonly VkShaderModule _fragmentModule;
@@ -76,8 +86,9 @@ namespace KSARS.Visuals
             ArgumentNullException.ThrowIfNull(borrowedTarget);
             ArgumentNullException.ThrowIfNull(atlas);
             ArgumentNullException.ThrowIfNull(sources);
+            VkFormat sceneColorFormat = SceneFormatFromGlsl(sources.MainColorFormatGlsl);
             if (borrowedTarget.ColorImage is not { } sceneColor
-                || sceneColor.Format != ImageFormat
+                || sceneColor.Format != sceneColorFormat
                 || sceneColor.Samples != VkSampleCountFlags._1Bit
                 || borrowedTarget.DepthImage is null)
             {
@@ -88,6 +99,7 @@ namespace KSARS.Visuals
             _renderer = renderer;
             _borrowedTarget = borrowedTarget;
             _atlas = atlas;
+            _sceneColorFormat = sceneColorFormat;
             _extent = new VkExtent2D(sceneColor.Extent.Width, sceneColor.Extent.Height);
 
             try
@@ -380,7 +392,7 @@ namespace KSARS.Visuals
 
             if (!ReferenceEquals(sceneTarget, _borrowedTarget)
                 || sceneTarget.ColorImage is not { } sceneColor
-                || sceneColor.Format != ImageFormat
+                || sceneColor.Format != _sceneColorFormat
                 || sceneColor.Samples != VkSampleCountFlags._1Bit
                 || sceneColor.Extent.Width != _extent.Width
                 || sceneColor.Extent.Height != _extent.Height
@@ -394,7 +406,7 @@ namespace KSARS.Visuals
             if (GameSettings.GetSampleCount() != VkSampleCountFlags._1Bit
                 && Program.Instance.GetTransparenciesMsaaColorTarget()?.ColorImage is { } msaa)
             {
-                if (msaa.Format != ImageFormat || msaa.Width != _extent.Width
+                if (msaa.Format != _sceneColorFormat || msaa.Width != _extent.Width
                     || msaa.Height != _extent.Height)
                 {
                     throw new RendererTargetChangedException(
