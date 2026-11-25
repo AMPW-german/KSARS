@@ -4,7 +4,7 @@
 	<PropertyGroup>
 		<ModName>KSARS</ModName>
 
-		<VersionPrefix>1.1.1</VersionPrefix>
+		<VersionPrefix>1.1.2</VersionPrefix>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 
 		<Company>AMPW</Company>

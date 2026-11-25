@@ -32,6 +32,8 @@ namespace KSARS.Visuals
     {
         private static MethodInfo? s_nativeDescriptorSet;
         private static MethodInfo? s_lightingDescriptorSet;
+        private static readonly MethodInfo? s_sunTransmittanceOffset = typeof(GlobalShaderBindings).GetMethod(
+            "SunTransmittanceOffset", BindingFlags.NonPublic | BindingFlags.Static);
         private static bool s_lightingProbeInstalled;
         private static bool s_lightingFailed;
         private static bool s_lightingAnchorMissed;
@@ -252,7 +254,7 @@ namespace KSARS.Visuals
             frame = getFrameIndex();
             if (resources is null)
             {
-                if (!TryCreateLightingResources(out resources))
+                if (!TryCreateLightingResources(main, out resources))
                 {
                     return false;
                 }
@@ -288,7 +290,8 @@ namespace KSARS.Visuals
             return s_lightingPreparedOk;
         }
 
-        private static bool TryCreateLightingResources([NotNullWhen(true)] out VesselLightingUbo? resources)
+        private static bool TryCreateLightingResources(IViewport main,
+            [NotNullWhen(true)] out VesselLightingUbo? resources)
         {
             resources = null;
             Core.Renderer? renderer = Program.GetRenderer();
@@ -301,7 +304,8 @@ namespace KSARS.Visuals
 
             try
             {
-                resources = new VesselLightingUbo(renderer, layout, renderer.MaxFramesInFlight);
+                resources = new VesselLightingUbo(renderer, layout, renderer.MaxFramesInFlight,
+                    main.ShaderSlot);
                 Console.WriteLine("KSARS: vessel lighting probe resources allocated against the global descriptor layout");
                 return true;
             }
@@ -699,7 +703,8 @@ namespace KSARS.Visuals
             private bool _uboMapped;
             private bool _disposed;
 
-            internal VesselLightingUbo(Core.Renderer renderer, DescriptorSetLayoutEx globalLayout, int frameCount)
+            internal VesselLightingUbo(Core.Renderer renderer, DescriptorSetLayoutEx globalLayout,
+                int frameCount, int viewportIndex)
             {
                 ArgumentNullException.ThrowIfNull(renderer);
                 ArgumentNullException.ThrowIfNull(globalLayout);
@@ -739,10 +744,8 @@ namespace KSARS.Visuals
                         new DescriptorPoolEx.CreateInfo
                         {
                             MaxSets = frameCount,
-                            PoolSizes = new VkDescriptorPoolSize[]
-                            {
-                                new() { Type = VkDescriptorType.UniformBuffer, DescriptorCount = 2 * frameCount },
-                            },
+                            PoolSizes = DescriptorPoolSupport.CreatePoolSizes(
+                                (globalLayout.Descriptors, frameCount)),
                         },
                         null);
                     Sets = new VkDescriptorSet[frameCount];
@@ -765,6 +768,8 @@ namespace KSARS.Visuals
                             Span<VkDescriptorImageInfo>.Empty, Span<VkDescriptorImageInfo>.Empty,
                             new[] { globalInfo, constantsInfo }, Span<VkDescriptorBufferInfo>.Empty,
                             Span<VkDescriptorBufferInfo>.Empty, renderer);
+                        WriteSunTransmittanceDescriptor(renderer, Sets[i], globalLayout,
+                            viewportIndex, i);
                     }
                 }
                 catch
@@ -777,6 +782,49 @@ namespace KSARS.Visuals
             internal int FrameCount { get; }
             internal DescriptorSetLayoutEx Layout { get; }
             internal VkDescriptorSet[] Sets { get; }
+
+            private static unsafe void WriteSunTransmittanceDescriptor(Core.Renderer renderer,
+                VkDescriptorSet set, DescriptorSetLayoutEx globalLayout, int viewportIndex, int frameIndex)
+            {
+                if (!globalLayout.Descriptors.TryGetValue(VkDescriptorType.StorageBuffer, out int count))
+                {
+                    return;
+                }
+
+                if (count != 1 || s_sunTransmittanceOffset is null
+                    || s_sunTransmittanceOffset.ReturnType != typeof(ByteSize)
+                    || s_sunTransmittanceOffset.GetParameters() is not { Length: 2 } parameters
+                    || parameters[0].ParameterType != typeof(int)
+                    || parameters[1].ParameterType != typeof(int))
+                {
+                    throw new InvalidOperationException(
+                        "global storage-buffer layout is unsupported for the owned Sunbloom descriptor set");
+                }
+
+                object? offsetValue = s_sunTransmittanceOffset.Invoke(
+                    null, new object[] { viewportIndex, frameIndex });
+                if (offsetValue is not ByteSize offset)
+                {
+                    throw new InvalidOperationException(
+                        "native sun-transmittance descriptor offset could not be resolved");
+                }
+
+                var bufferInfo = new VkDescriptorBufferInfo
+                {
+                    Buffer = GlobalShaderBindings.SunTransmittanceBuffer.VkBuffer,
+                    Offset = offset,
+                    Range = ByteSize.Of<float>(GlobalShaderBindings.SunTransmittance(viewportIndex).Length),
+                };
+                var write = new VkWriteDescriptorSet
+                {
+                    DstSet = set,
+                    DstBinding = GlobalShaderBindings.BindingSunTransmittance,
+                    DescriptorCount = 1,
+                    DescriptorType = VkDescriptorType.StorageBuffer,
+                    BufferInfo = &bufferInfo,
+                };
+                renderer.Device.UpdateDescriptorSets(new ReadOnlySpan<VkWriteDescriptorSet>(in write), default);
+            }
 
             internal void WriteFrame(int frame, in UboCameraData camera, in UboLightingData lighting,
                 in UboCelestialData celestial, in UboVesselData vessel)

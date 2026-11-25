@@ -669,6 +669,7 @@ namespace KSARS.Visuals.Tests
             var refs = FieldRefsOf(prep);
 
             Assert.Equal(1, CountCalls(calls, "KSA.Universe", "get_WorldSun"));
+            Assert.Equal(1, CountCalls(calls, "KSA.Rendering.Sun.SunRenderer", "StartShowingDistOf"));
             // The media probe patches Camera.GetPositionEgo to apparent
             // positions; solar candidates must keep rest geometry via the
             // direct ECL difference.
@@ -695,10 +696,14 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(FieldStoresOf(prep), name => name == "Token");
 
             int adapterRecord = IndexOfCall(calls, "KSARS.Visuals.NativeSolarCaptureAdapter", "Record");
+            int nativeSurfaceThreshold = IndexOfCall(calls, "KSA.Rendering.Sun.SunRenderer", "StartShowingDistOf");
             int coverageRecord = IndexOfCall(calls, "KSARS.Visuals.SolarCoverageProbe", "Record");
             int contextCtor = IndexOfCall(calls, "KSARS.Visuals.ObjectCaptureContext", ".ctor");
-            Assert.True(contextCtor < adapterRecord && adapterRecord < coverageRecord,
-                "context must be rooted before adapter record, coverage record after color capture");
+            Assert.True(nativeSurfaceThreshold >= 0 && nativeSurfaceThreshold < contextCtor
+                && contextCtor < adapterRecord && adapterRecord < coverageRecord,
+                "far-field suns must return to the native white-disk/Sunbloom route before the near-field surface capture is created");
+            Assert.Contains(prep.Body.Instructions.Skip(nativeSurfaceThreshold).Take(contextCtor - nativeSurfaceThreshold),
+                instruction => instruction.OpCode.FlowControl == FlowControl.Cond_Branch);
             int barrier = IndexOfCall(calls, "KSA.CommandBufferEx", "PipelineBarrier2");
             Assert.True(barrier > coverageRecord,
                 "the explicit depth-sampled-read barrier must follow the coverage record outside attachments");

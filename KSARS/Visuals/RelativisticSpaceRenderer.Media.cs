@@ -59,8 +59,9 @@ namespace KSARS.Visuals
     // Probes that consume the global shader copies (ObserverSnapshot) must see
     // rest positions: RestoreRestBodyPositions reconstructs them per slot.
     // On by default; KSARS_MEDIA_PROBE=0 disables. Position-only scope: media
-    // radiance keeps rest-frame colors; per-body Doppler spectral treatment of
-    // native shader output is a separate backlog item.
+    // radiance keeps rest-frame colors except the rendered Sunbloom disk and
+    // glow, whose native flare data receives the same relative-motion color
+    // shift and the aberrated angular size.
     internal static partial class RelativisticSpaceRenderer
     {
         private static bool s_mediaInstalled;
@@ -82,6 +83,8 @@ namespace KSARS.Visuals
         private static MethodInfo? s_sunbloomApparentSet;
         private static int s_sunbloomAnchors;
         private static bool s_sunbloomBound;
+        private static bool s_sunbloomRadianceBound;
+        private static bool s_sunbloomTransformFailureLogged;
         private static string s_mediaStatus = "media probe not installed";
 
         internal static bool TryInstallMediaProbe(Harmony harmony,
@@ -93,6 +96,8 @@ namespace KSARS.Visuals
             }
 
             s_mediaStatus = "";
+            s_sunbloomRadianceBound = false;
+            s_sunbloomTransformFailureLogged = false;
             try
             {
                 MethodInfo? getPositionEgo = typeof(Camera).GetMethod(
@@ -169,9 +174,23 @@ namespace KSARS.Visuals
                         nameof(GlobalShaderBindings.DescriptorSet), BindingFlags.Public | BindingFlags.Static);
                     s_sunbloomApparentSet = typeof(RelativisticSpaceRenderer).GetMethod(
                         nameof(DescriptorSetOrNative), BindingFlags.NonPublic | BindingFlags.Static);
+                    MethodInfo? sunbloomDataPrefix = typeof(RelativisticSpaceRenderer).GetMethod(
+                        nameof(SunbloomUpdateShaderPassPrefix), BindingFlags.NonPublic | BindingFlags.Static);
                     if (sunbloomType is not null && s_sunbloomNativeSet is not null
                         && s_sunbloomApparentSet is not null)
                     {
+                        MethodInfo? sunbloomUpdate = sunbloomType.GetMethod("UpdateShaderPass",
+                            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                            binder: null,
+                            types: new[] { typeof(SunFlareData), typeof(IViewport), typeof(int) },
+                            modifiers: null);
+                        if (sunbloomUpdate is not null && sunbloomDataPrefix is not null)
+                        {
+                            harmony.Patch(sunbloomUpdate, prefix: new HarmonyMethod(sunbloomDataPrefix));
+                            patched.Add(sunbloomUpdate);
+                            s_sunbloomRadianceBound = true;
+                        }
+
                         MethodInfo? sunbloomTranspiler = typeof(RelativisticSpaceRenderer).GetMethod(
                             nameof(TranspileSunbloomDescriptorSet), BindingFlags.NonPublic | BindingFlags.Static);
                         if (sunbloomTranspiler is not null)
@@ -218,15 +237,106 @@ namespace KSARS.Visuals
 
                 s_mediaInstalled = true;
                 s_mediaFailed = false;
-                s_mediaStatus = $"media probe installed: apparent body positions bound at Camera::GetPositionEgo for main viewport (CelestialData bodies, planet lighting position, sun position, distant spheres, ocean, atmosphere, rings, orbit lines) plus planet-relative camera positions for ocean/atmosphere/cloud compute paths; per-argument relative velocity, co-moving bodies keep rest geometry; native shading keeps the rest-frame sun (SunPositionRadius, CSM); sunbloom rebind anchors={s_sunbloomAnchors}; position-only, media radiance keeps rest colors";
+                s_mediaStatus = $"media probe installed: apparent body positions bound at Camera::GetPositionEgo for main viewport (CelestialData bodies, planet lighting position, sun position, distant spheres, ocean, atmosphere, rings, orbit lines) plus planet-relative camera positions for ocean/atmosphere/cloud compute paths; per-argument relative velocity, co-moving bodies keep rest geometry; native shading keeps the rest-frame sun (SunPositionRadius, CSM); sunbloom rebind anchors={s_sunbloomAnchors}, relativistic disk/bloom data={s_sunbloomRadianceBound}";
                 Console.WriteLine($"KSARS: {s_mediaStatus}");
                 return true;
             }
             catch (Exception ex)
             {
+                s_sunbloomRadianceBound = false;
                 s_mediaStatus = $"media probe disabled: {ex.GetType().Name}: {ex.Message}; native body positions retained";
                 Console.WriteLine($"KSARS: {s_mediaStatus}");
                 return false;
+            }
+        }
+
+        private static void SunbloomUpdateShaderPassPrefix(ref SunFlareData __0, IViewport __1)
+        {
+            try
+            {
+                Camera? camera = __1.GetCamera();
+                if (!IsMediaTransformActive(camera)
+                    || !TryCaptureEffectiveObserver(out ObserverSnapshot? snapshot,
+                        out PresentationVelocity observer)
+                    || snapshot is null
+                    || !ReferenceEquals(snapshot.MainViewport, __1)
+                    || Universe.WorldSun is not { } sun)
+                {
+                    return;
+                }
+
+                double3 restPosition = sun.GetPositionEcl() - snapshot.MainCamera.PositionEcl;
+                double3 rawSunVelocity = sun.GetVelocityEcl();
+                if (!IsFinite(restPosition) || !IsFinite(rawSunVelocity))
+                {
+                    return;
+                }
+
+                var observerVelocity = observer.Direction * observer.Speed;
+                var sunVelocity = new OpticalVector(rawSunVelocity.X, rawSunVelocity.Y, rawSunVelocity.Z);
+                if (!TryRelativeObserver(in observerVelocity, in sunVelocity,
+                        out PresentationVelocity relative)
+                    || !RelativisticOptics.TryForward(
+                        new OpticalVector(restPosition.X, restPosition.Y, restPosition.Z),
+                        in relative, out OpticalRay sunRay))
+                {
+                    return;
+                }
+
+                if (SunSpectrumScale.Try(__0.SunColor.X, __0.SunColor.Y, __0.SunColor.Z,
+                        sunRay.DopplerFactor, out double scaleR, out double scaleG, out double scaleB))
+                {
+                    __0.SunColor = new float3(
+                        __0.SunColor.X * (float)scaleR,
+                        __0.SunColor.Y * (float)scaleG,
+                        __0.SunColor.Z * (float)scaleB);
+                }
+
+                double enclosingRadius = 4.0 * sun.MeanRadius;
+                var rest = new OpticalVector(restPosition.X, restPosition.Y, restPosition.Z);
+                if (!AtlasProjection.TryCreate(rest, enclosingRadius, SourceTileSize, SourceGuardPixels,
+                        out AtlasProjection projection))
+                {
+                    return;
+                }
+
+                float4 forwardComponent = float4.Transform(
+                    new float4(0.0f, 0.0f, -1.0f, 0.0f), snapshot.CameraData.InverseView);
+                float4 rightComponent = float4.Transform(
+                    new float4(1.0f, 0.0f, 0.0f, 0.0f), snapshot.CameraData.InverseView);
+                float4 upComponent = float4.Transform(
+                    new float4(0.0f, 1.0f, 0.0f, 0.0f), snapshot.CameraData.InverseView);
+                float m22 = MathF.Abs(snapshot.CameraData.Projection.M22);
+                if (!(m22 > 0.0f) || !float.IsFinite(m22)
+                    || !RelativisticOptics.TryNormalize(
+                        new OpticalVector(forwardComponent.X, forwardComponent.Y, forwardComponent.Z),
+                        out OpticalVector forward)
+                    || !RelativisticOptics.TryNormalize(
+                        new OpticalVector(rightComponent.X, rightComponent.Y, rightComponent.Z),
+                        out OpticalVector right)
+                    || !RelativisticOptics.TryNormalize(
+                        new OpticalVector(upComponent.X, upComponent.Y, upComponent.Z),
+                        out OpticalVector up)
+                    || !SolarGlareProjection.TryCreate(in projection, sun.MeanRadius, in relative,
+                        forward, right, up, 2.0 * Math.Atan(1.0 / m22),
+                        snapshot.MainViewport.Width, snapshot.MainViewport.Height,
+                        out SolarGlareProjection glare))
+                {
+                    return;
+                }
+
+                __0.SunDot = (float)glare.SunDot;
+                __0.ScreenspaceSunRadius = (float)glare.SunRadiusPixels;
+                __0.ScreenspaceGlowRadius = (float)glare.GlowRadiusPixels;
+            }
+            catch (Exception ex)
+            {
+                if (!s_sunbloomTransformFailureLogged)
+                {
+                    s_sunbloomTransformFailureLogged = true;
+                    Console.WriteLine(
+                        $"KSARS: native Sunbloom relativistic transform skipped ({ex.GetType().Name}: {ex.Message}); game values retained");
+                }
             }
         }
 
@@ -742,12 +852,14 @@ namespace KSARS.Visuals
             s_sunbloomApparentSet = null;
             s_sunbloomAnchors = 0;
             s_sunbloomBound = false;
+            s_sunbloomRadianceBound = false;
+            s_sunbloomTransformFailureLogged = false;
             s_mediaStatus = "media probe not installed";
         }
 
         internal static string MediaStatus =>
             s_mediaInstalled && !s_mediaFailed
-                ? $"media probe active: apparent body positions via relative-velocity aberration (sun included); native shading keeps rest sun/CSM; sunbloom apparent-bound={(s_sunbloomBound ? $"yes ({s_sunbloomAnchors} anchors)" : "no")}; transforms={s_mediaTransformed} transpiledCalls={s_mediaTranspiledCalls} shadingRest={s_mediaShadingRestored}{(s_skipSunRadiusRest ? " NOSUNREST" : "")}{(s_skipCsmRest ? " NOCSMREST" : "")}; media radiance rest-colored; position-only scope"
+                ? $"media probe active: apparent body positions via relative-velocity aberration (sun included); native shading keeps rest sun/CSM; sunbloom apparent-bound={(s_sunbloomBound ? $"yes ({s_sunbloomAnchors} anchors)" : "no")}, relativistic disk/bloom data={(s_sunbloomRadianceBound ? "yes" : "no")}; transforms={s_mediaTransformed} transpiledCalls={s_mediaTranspiledCalls} shadingRest={s_mediaShadingRestored}{(s_skipSunRadiusRest ? " NOSUNREST" : "")}{(s_skipCsmRest ? " NOCSMREST" : "")}; media radiance rest-colored except rendered Sunbloom"
                 : s_mediaStatus;
     }
 }

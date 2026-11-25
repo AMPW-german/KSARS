@@ -124,6 +124,7 @@ namespace KSARS.Visuals.Tests
                 "Render", "RenderWithCompute", "UpdateShadowVolume",
                 "RenderVolumetricTrailsOnly",
                 "UpdateShaderData", "UpdateShaderDataShadingRestPostfix",
+                "SunbloomUpdateShaderPassPrefix", "UpdateShaderPass",
                 "_lightingData", "_sunPositionEgo",
             })
             {
@@ -217,6 +218,35 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(type.Methods, m => m.Name == "TryAberrateEgo");
             Assert.Contains(type.Methods, m => m.Name == "RestoreRestBodyPositions");
             Assert.Contains(type.Methods, m => m.Name == "ResetMediaProbeState");
+        }
+
+        [Fact]
+        public void SunbloomPrefix_DopplerShiftsNativeColorAndAberratedDiskSize()
+        {
+            using AssemblyDefinition assembly = LoadModAssembly();
+            TypeDefinition type = ModType(assembly, "KSARS.Visuals.RelativisticSpaceRenderer");
+            MethodDefinition prefix = type.Methods.Single(m => m.Name == "SunbloomUpdateShaderPassPrefix");
+            var calls = prefix.Body.Instructions
+                .Where(i => i.OpCode == OpCodes.Call || i.OpCode == OpCodes.Callvirt)
+                .Select(i => (MethodReference)i.Operand)
+                .ToArray();
+            var transformedFields = prefix.Body.Instructions
+                .Where(i => i.OpCode == OpCodes.Stfld
+                    && i.Operand is FieldReference field
+                    && field.DeclaringType.FullName == "KSA.SunFlareData")
+                .Select(i => ((FieldReference)i.Operand).Name)
+                .ToHashSet();
+
+            Assert.Contains(calls, call => call.Name == "Try"
+                && call.DeclaringType.Name == "SunSpectrumScale");
+            Assert.Contains(calls, call => call.Name == "TryCreate"
+                && call.DeclaringType.Name == "SolarGlareProjection");
+            Assert.Contains(calls, call => call.Name == "TryRelativeObserver");
+            Assert.Contains(calls, call => call.Name == "TryCaptureEffectiveObserver");
+            Assert.Contains("SunColor", transformedFields);
+            Assert.Contains("SunDot", transformedFields);
+            Assert.Contains("ScreenspaceSunRadius", transformedFields);
+            Assert.Contains("ScreenspaceGlowRadius", transformedFields);
         }
     }
 }
