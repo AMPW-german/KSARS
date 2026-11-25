@@ -9,6 +9,7 @@ using HarmonyLib;
 using KSA;
 using KSA.Rendering;
 using KSA.Rendering.Rings.Rendering;
+using KSA.Rendering.Sun;
 using RenderCore;
 using SyncObjects = Brutal.VulkanApi.Abstractions.SyncObjects;
 
@@ -3104,8 +3105,16 @@ namespace KSARS.Visuals
                 return;
             }
 
+            double nativeSurfaceDistance = SunRenderer.StartShowingDistOf(sun);
+            double solarDistance = relativePosition.Length();
+            if (solarDistance >= nativeSurfaceDistance)
+            {
+                s_mainSolarStatus = $"main solar far-field: {sun.Id} distance={solarDistance:F0}m >= native surface threshold={nativeSurfaceDistance:F0}m; native Sunbloom disk and glow retained";
+                return;
+            }
+
             double enclosingRadius = 4.0 * sun.MeanRadius;
-            if (!(relativePosition.Length() > enclosingRadius))
+            if (!(solarDistance > enclosingRadius))
             {
                 s_mainSolarStatus = $"main solar waiting: {sun.Id} observer inside 4R envelope; native Sun path retained";
                 return;

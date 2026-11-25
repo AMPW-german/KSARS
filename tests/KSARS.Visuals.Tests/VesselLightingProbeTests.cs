@@ -462,15 +462,19 @@ namespace KSARS.Visuals.Tests
             Assert.Contains(calls, c => c.Reference.Name == "AllocateDescriptorSet");
             Assert.Contains(calls, c => c.Reference.Name == "WriteDescriptorSets");
             Assert.Contains(calls, c => c.Reference.DeclaringType.FullName.Contains("GlobalShaderBindings"));
+            MethodDefinition transmittance = SingleMethod(nested, "WriteSunTransmittanceDescriptor");
+            var transmittanceCalls = CallsOf(transmittance);
+            Assert.Contains(transmittanceCalls, c => c.Reference.Name == "get_SunTransmittanceBuffer");
+            Assert.Contains(transmittanceCalls, c => c.Reference.Name == "SunTransmittance");
+            Assert.Contains(transmittanceCalls, c => c.Reference.Name == "UpdateDescriptorSets");
             MethodDefinition createBuffer = SingleMethod(nested, "CreateUniformBuffer");
             Assert.Contains(CallsOf(createBuffer), c => c.Reference.Name == "CreateBuffer");
             // Per-frame sets are stored into the owned set array inside the
             // ctor loop (VkDescriptorSet is a value type: stelem.any).
             Assert.Contains(ctor.Body.Instructions, i => i.OpCode.Name.StartsWith("stelem"));
 
-            // No instruction anywhere in the partial may read or write the
-            // native uniform buffer, mapped memory, or descriptor array: the
-            // owned copy must leave native state bitwise untouched.
+            // The owned copy may borrow SunTransmittanceBuffer read-only, but
+            // must not access native uniform storage, mappings, or set arrays.
             TypeDefinition outer = ModType(assembly, "KSARS.Visuals.RelativisticSpaceRenderer");
             foreach (TypeDefinition t in new[] { outer, nested })
             {

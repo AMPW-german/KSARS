@@ -95,19 +95,18 @@ namespace KSARS.Visuals
                 var materialCounts = new Utils.BindingCounts { UniformDynamicBuffers = 1 };
                 MaterialLayout = Utils.BuildDescriptorSetLayout(renderer, name + "_MaterialLayout",
                     materialCounts, VkShaderStageFlags.VertexBit | VkShaderStageFlags.FragmentBit);
+                DescriptorSetLayoutEx globalLayout = GlobalShaderBindings.DescriptorSetLayout;
                 DescriptorPool = DescriptorPoolExExtensions.CreateDescriptorPool(renderer.Device,
                     new DescriptorPoolEx.CreateInfo
                     {
                         MaxSets = 2,
-                        PoolSizes = new VkDescriptorPoolSize[]
-                        {
-                            new() { Type = VkDescriptorType.UniformBuffer, DescriptorCount = 2 },
-                            new() { Type = VkDescriptorType.UniformBufferDynamic, DescriptorCount = 1 },
-                        },
+                        PoolSizes = DescriptorPoolSupport.CreatePoolSizes(
+                            (globalLayout.Descriptors, 1),
+                            (MaterialLayout.Descriptors, 1)),
                     },
                     null);
                 GlobalSet = DescriptorPoolExExtensions.AllocateDescriptorSet(renderer.Device, DescriptorPool,
-                    GlobalShaderBindings.DescriptorSetLayout);
+                    globalLayout);
                 MaterialSet = DescriptorPoolExExtensions.AllocateDescriptorSet(renderer.Device, DescriptorPool,
                     MaterialLayout);
 

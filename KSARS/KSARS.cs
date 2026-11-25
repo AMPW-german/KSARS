@@ -173,7 +173,7 @@ namespace KSARS
 
         // Disable structural failure detection to prevent unrealistic breakage at relativistic speeds
         [HarmonyPatch(typeof(PhysicsBubble), "DetectStructuralFailure"), HarmonyPrefix]
-        public static bool VehicleUpdateTask_DetectStructuralFailure_Prefix(VehicleUpdateTask __instance) => false;
+        public static bool VehicleUpdateTask_DetectStructuralFailure_Prefix() => false;
 
         [HarmonyPatch(typeof(FlightComputer), "SolveGLoadThrottleCap"), HarmonyPostfix]
         public static void FlightComputer_SolveGLoadThrottleCap_Postfix(ref float __result) => __result = 1.0f; // Disable G-load throttle cap to allow full thrust at relativistic speeds
@@ -198,7 +198,7 @@ namespace KSARS
         [HarmonyPatch(typeof(PhysicsStates), nameof(PhysicsStates.ComputeDerivatives), new Type[]
         {
             typeof(double), typeof(double), typeof(double3), typeof(double3),
-            typeof(ReadOnlySpan<ActiveNozzle>), typeof(ReadOnlySpan<ActiveChute>)
+            typeof(ReadOnlySpan<ActiveNozzle>), typeof(ReadOnlySpan<ActiveChute>), typeof(PartTree)
         }), HarmonyPostfix]
         private static void PhysicsStates_ComputeDerivatives_Postfix(ref Disturbances __result, in PhysicsStates __instance, double dt)
         {

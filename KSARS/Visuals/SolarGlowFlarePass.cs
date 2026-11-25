@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Brutal;
 using Brutal.Numerics;
@@ -17,6 +18,11 @@ namespace KSARS.Visuals
     // pools, layouts and pipelines are owned here.
     internal sealed class SolarGlowFlarePass : IDisposable
     {
+        private static readonly MethodInfo? s_programMsaaColorTargetGetter = typeof(Program).GetMethod(
+            "GetTransparenciesMsaaColorTarget", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly FieldInfo? s_programMsaaResolveField = typeof(Program).GetField(
+            "_transparenciesMsaaResolve", BindingFlags.Instance | BindingFlags.NonPublic);
+
         private const VkFormat ImageFormat = VkFormat.R16G16B16A16SFloat;
         private const int LocalSize = 8;
 
@@ -404,7 +410,7 @@ namespace KSARS.Visuals
 
             RenderImage mainColor = sceneColor;
             if (GameSettings.GetSampleCount() != VkSampleCountFlags._1Bit
-                && Program.Instance.GetTransparenciesMsaaColorTarget()?.ColorImage is { } msaa)
+                && GetTransparenciesMsaaColorTarget()?.ColorImage is { } msaa)
             {
                 if (msaa.Format != _sceneColorFormat || msaa.Width != _extent.Width
                     || msaa.Height != _extent.Height)
@@ -486,6 +492,20 @@ namespace KSARS.Visuals
             WriteImageDescriptor(_mergeSet2, 2, VkDescriptorType.CombinedImageSampler, in blurReadInfo);
 
             _prepared = true;
+        }
+
+        private static RenderTarget? GetTransparenciesMsaaColorTarget()
+        {
+            Program program = Program.Instance;
+            if (s_programMsaaColorTargetGetter is { } getter)
+            {
+                return getter.Invoke(program, null) as RenderTarget;
+            }
+
+            object? resolver = s_programMsaaResolveField?.GetValue(program);
+            MethodInfo? resolverGetter = resolver?.GetType().GetMethod(
+                "GetTransparenciesMsaaColorTarget", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            return resolverGetter?.Invoke(resolver, null) as RenderTarget;
         }
 
         internal unsafe void Record(CommandBuffer commandBuffer)
